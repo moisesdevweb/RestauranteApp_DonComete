@@ -11,12 +11,13 @@ interface User {
 interface AuthStore {
   token: string | null;
   user: User | null;
+  _hasHydrated: boolean;
   setAuth: (token: string, user: User) => void;
   logout: () => void;
   isAuthenticated: () => boolean;
+  setHasHydrated: (val: boolean) => void;
 }
 
-// Storage que guarda en cookie Y localStorage
 const cookieStorage = {
   getItem: (name: string) => {
     if (typeof window === 'undefined') return null;
@@ -25,8 +26,7 @@ const cookieStorage = {
   },
   setItem: (name: string, value: string) => {
     if (typeof window === 'undefined') return;
-    // Cookie que dura 12 horas — el middleware puede leerla
-    document.cookie = `${name}=${encodeURIComponent(value)};path=/;max-age=${60 * 60 * 12}`;
+    document.cookie = `${name}=${encodeURIComponent(value)};path=/;max-age=${60 * 60 * 12};SameSite=Lax`;
   },
   removeItem: (name: string) => {
     if (typeof window === 'undefined') return;
@@ -39,17 +39,19 @@ export const useAuthStore = create<AuthStore>()(
     (set, get) => ({
       token: null,
       user: null,
-      setAuth: (token, user) => {
-        set({ token, user });
-      },
-      logout: () => {
-        set({ token: null, user: null });
-      },
+      _hasHydrated: false,
+      setHasHydrated: (val) => set({ _hasHydrated: val }),
+      setAuth: (token, user) => set({ token, user }),
+      logout: () => set({ token: null, user: null }),
       isAuthenticated: () => !!get().token,
     }),
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => cookieStorage),
+      // ← Zustand llama esto cuando termina de leer la cookie
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );

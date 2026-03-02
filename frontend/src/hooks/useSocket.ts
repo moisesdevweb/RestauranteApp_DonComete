@@ -7,8 +7,8 @@ type EventHandlers = Record<string, (data: unknown) => void>;
 
 export const useSocket = (eventos?: EventHandlers) => {
   const { user } = useAuthStore();
-  const socketRef = useRef<Socket | null>(null);
-  const eventosRef = useRef<EventHandlers | undefined>(eventos); // ← aquí
+  const socketRef   = useRef<Socket | null>(null);
+  const eventosRef  = useRef<EventHandlers | undefined>(eventos);
 
   // Actualiza la ref sin disparar el efecto
   useEffect(() => {
@@ -38,7 +38,7 @@ export const useSocket = (eventos?: EventHandlers) => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [user]); // ← solo [user], no [eventos]
+  }, [user]);
 
   const emit = useCallback((evento: string, data?: unknown) => {
     socketRef.current?.emit(evento, data);

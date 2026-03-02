@@ -25,39 +25,40 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username || !password) {
-      sileo.error({ title: 'Completa todos los campos' });
+  e.preventDefault();
+  if (!username || !password) {
+    sileo.error({ title: 'Completa todos los campos' });
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const { token, user } = await loginService({ username, password });
+
+    if (user.rol !== rolSeleccionado) {
+      sileo.error({
+        title: 'Rol incorrecto',
+        description: `Esta cuenta es de tipo "${user.rol}"`,
+      });
       return;
     }
 
-    setLoading(true);
-    try {
-      const res = await loginService({ username, password });
+    setAuth(token, user);
+    sileo.success({ title: `Bienvenido, ${user.nombre} 👋` });
 
-      // Verificar que el rol coincide con el seleccionado
-      if (res.data.user.rol !== rolSeleccionado) {
-        sileo.error({
-          title: 'Rol incorrecto',
-          description: `Esta cuenta es de tipo "${res.data.user.rol}"`,
-        });
-        return;
-      }
+    const rutas: Record<string, string> = {
+      admin:  '/admin',
+      mesero: '/mesero',
+      cocina: '/cocina',
+    };
+    router.push(rutas[user.rol] ?? '/');
 
-      setAuth(res.data.token, res.data.user);
-      sileo.success({ title: `Bienvenido, ${res.data.user.nombre} 👋` });
-
-      // Redirigir según rol
-      if (res.data.user.rol === 'admin')  router.push('/admin');
-      if (res.data.user.rol === 'mesero') router.push('/mesero');
-      if (res.data.user.rol === 'cocina') router.push('/cocina');
-
-    } catch {
-      sileo.error({ title: 'Usuario o contraseña incorrectos' });
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch {
+    sileo.error({ title: 'Usuario o contraseña incorrectos' });
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-[#1a1f2e] relative overflow-hidden">

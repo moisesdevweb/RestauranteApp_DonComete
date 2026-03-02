@@ -1,34 +1,28 @@
 import api from '@/lib/axios';
 
-interface LoginPayload {
+export interface LoginPayload {
   username: string;
   password: string;
 }
 
-interface LoginResponse {
-  ok: boolean;
-  data: {
-    token: string;
-    user: {
-      id: number;
-      nombre: string;
-      username: string;
-      rol: string;
-    };
-  };
+export interface UserAuth {
+  id: number;
+  nombre: string;
+  username: string;
+  rol: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: UserAuth;
 }
 
 export const loginService = async (payload: LoginPayload): Promise<LoginResponse> => {
-  const response = await api.post<{
-    ok: boolean;
-    data: {
-      token: string;
-      user: { id: number; nombre: string; username: string; rol: string };
-    };
-  }>('/auth/login', payload);
+  const { data } = await api.post('/auth/login', payload);
+  return data.data; // backend: { ok, data: { token, user } }
+};
 
-  return {
-    ok: true,
-    data: response.data.data, // ← backend devuelve { ok, data: { token, user } }
-  };
+export const meService = async (): Promise<UserAuth> => {
+  const { data } = await api.get('/auth/me');
+  return data.data;
 };

@@ -121,55 +121,63 @@ export const enviarACocina = async (req: Request, res: Response): Promise<void> 
     if (!id) { res.status(400).json({ ok: false, message: 'ID inválido' }); return; }
 
     const orden = await Orden.findByPk(id, {
-      include: [
-        {
-          model: Comensal,
-          as: 'comensales',
-          include: [{ model: DetalleOrden, as: 'detalles' }],
-        },
-      ],
+      include: [{
+        model: Comensal, as: 'comensales',
+        include: [{
+          model: DetalleOrden, as: 'detalles',
+          include: [{ model: Producto, as: 'producto' }],
+        }],
+      }],
     });
 
     if (!orden) { res.status(404).json({ ok: false, message: 'Orden no encontrada' }); return; }
-    //permite reenviar si ya estaba EN_COCINA
     if (orden.estado !== EstadoOrden.ABIERTA && orden.estado !== EstadoOrden.EN_COCINA) {
-      res.status(400).json({ ok: false, message: 'No se puede enviar esta orden' });
-      return;
+      res.status(400).json({ ok: false, message: 'No se puede enviar esta orden' }); return;
     }
-    // Siempre actualiza a EN_COCINA (si ya lo estaba, no importa)
+
+    // Marcar automáticamente como LISTO los que NO requieren cocina
+    const todosDetalles: DetalleOrden[] = orden.comensales.flatMap(c => c.detalles);
+
+    await Promise.all(todosDetalles
+      .filter(d => d.estado === EstadoDetalle.PENDIENTE)
+      .map(async d => {
+        // menu_dia siempre va a cocina
+        // carta: depende del campo requiereCocina del producto
+        const noCocina = d.tipo === 'carta' && d.producto && !d.producto.requiereCocina;
+        if (noCocina) {
+          await d.update({ estado: EstadoDetalle.LISTO });
+        }
+      })
+    );
+
     await orden.update({ estado: EstadoOrden.EN_COCINA });
 
-    // Aquí después agregaremos el emit de Socket.io
-    // io.emit('orden:nueva', orden);
-    // dentro de enviarACocina, después de orden.update:
-  // Recargar orden con todos los datos para enviar a cocina
+    // Recargar completo para emitir solo los que SÍ van a cocina
     const ordenCompleta = await Orden.findByPk(id, {
       include: [
         { model: Mesa, as: 'mesa' },
         {
-          model: Comensal,
-          as: 'comensales',
-          include: [
-            {
-              model: DetalleOrden,
-              as: 'detalles',
-              include: [
-                { model: Producto, as: 'producto' },
-                { model: MenuDiario, as: 'menuDiario' },
-              ],
-            },
-          ],
+          model: Comensal, as: 'comensales',
+          include: [{
+            model: DetalleOrden, as: 'detalles',
+            where: { estado: EstadoDetalle.PENDIENTE }, // solo pendientes a cocina
+            required: false,
+            include: [
+              { model: Producto, as: 'producto' },
+              { model: MenuDiario, as: 'menuDiario' },
+            ],
+          }],
         },
       ],
     });
 
-    emitNuevaOrden(ordenCompleta);  // ← emit a cocina
-
+    emitNuevaOrden(ordenCompleta);
     res.json({ ok: true, data: orden, message: 'Orden enviada a cocina' });
   } catch (err) {
     res.status(500).json({ ok: false, message: 'Error al enviar a cocina' });
   }
 };
+
 
 // GET /api/ordenes/cocina — ver pedidos pendientes (vista cocina)
 export const getOrdenescocina = async (_req: Request, res: Response): Promise<void> => {

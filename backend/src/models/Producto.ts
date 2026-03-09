@@ -33,6 +33,9 @@ export class Producto extends Model {
   @Column({ type: DataType.BOOLEAN, defaultValue: false })
   agotado!: boolean;          // agotado temporalmente (sin eliminar)
 
+  @Column({ type: DataType.BOOLEAN, defaultValue: true })
+  requiereCocina!: boolean; // false = se sirve directo, no va a cocina
+
   // ─── Relaciones ───────────────────────────────────────
   @BelongsTo(() => Categoria)
   categoria!: Categoria;

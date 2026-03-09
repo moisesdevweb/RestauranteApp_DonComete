@@ -22,8 +22,9 @@ export enum EstadoDetalle {
 }
 
 export enum MetodoPago {
-  EFECTIVO = 'efectivo',
-  TARJETA  = 'tarjeta',
-  YAPE     = 'yape',
-  PLIN     = 'plin',
+  EFECTIVO    = 'efectivo',
+  YAPE        = 'yape',
+  PLIN        = 'plin',
+  TARJETA     = 'tarjeta',
+  TRANSFERENCIA = 'transferencia',
 }

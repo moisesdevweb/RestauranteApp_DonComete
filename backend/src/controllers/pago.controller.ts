@@ -28,7 +28,7 @@ export const cobrarOrden = async (req: Request, res: Response): Promise<void> =>
 
     if (!orden) { res.status(404).json({ ok: false, message: 'Orden no encontrada' }); return; }
     if (orden.estado === EstadoOrden.PAGADA) {
-      res.status(400).json({ ok: false, message: 'Esta orden ya fue cobrada' }); return;
+      res.status(400).json({ ok: false, message: 'Esta orden ya fue cobrada' });
     }
 
     // Calcular subtotal desde los detalles

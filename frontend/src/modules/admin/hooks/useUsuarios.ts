@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { sileo } from 'sileo';
 import { Usuario } from '@/modules/admin/types/admin.types';
-import { UsuarioPayload, getUsuarios, crearUsuario, editarUsuario, desactivarUsuario } from '@/modules/admin/services/usuario.service';
+import { UsuarioPayload, getUsuarios, crearUsuario, editarUsuario, desactivarUsuario, reactivarUsuario } from '@/modules/admin/services/usuario.service';
 
 export function useUsuarios() {
   const [usuarios, setUsuarios]             = useState<Usuario[]>([]);
@@ -30,11 +30,11 @@ export function useUsuarios() {
       if (usuarioEditar) {
         const actualizado = await editarUsuario(usuarioEditar.id, data);
         setUsuarios(prev => prev.map(u => u.id === usuarioEditar.id ? actualizado : u));
-        sileo.success({ title: 'Usuario actualizado ✅' });
+        sileo.success({ title: 'Usuario actualizado ' });
       } else {
         const nuevo = await crearUsuario(data);
         setUsuarios(prev => [...prev, nuevo]);
-        sileo.success({ title: 'Usuario creado ✅' });
+        sileo.success({ title: 'Usuario creado ' });
       }
       setModalAbierto(false);
       setUsuarioEditar(null);
@@ -44,7 +44,15 @@ export function useUsuarios() {
       setGuardando(false);
     }
   };
-
+  const handleReactivar = async (id: number) => {
+  try {
+    const actualizado = await reactivarUsuario(id);
+    setUsuarios(prev => prev.map(u => u.id === id ? actualizado : u));
+    sileo.success({ title: 'Usuario reactivado ' });
+  } catch {
+    sileo.error({ title: 'Error al reactivar usuario' });
+  }
+};
   const handleEliminar = async (id: number) => {
     try {
       await desactivarUsuario(id);
@@ -70,7 +78,7 @@ export function useUsuarios() {
     usuarios, loading, guardando,
     usuarioEditar, modalAbierto,
     conteo,
-    handleGuardar, handleEliminar,
+    handleGuardar, handleEliminar, handleReactivar,
     abrirCrear, abrirEditar, cerrarModal,
   };
 }

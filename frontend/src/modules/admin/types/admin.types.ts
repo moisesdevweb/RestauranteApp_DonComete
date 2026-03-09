@@ -42,6 +42,35 @@ export interface Producto {
   categoria?: Pick<Categoria, 'id' | 'nombre' | 'icono'>;
   createdAt: string;
 }
+// ─── MENÚ DIARIO ──────────────────────────────────────────────────────────────
+export type TipoItem = 'entrada' | 'fondo' | 'postre' | 'bebida';
+
+export interface MenuDiarioItem {
+  id: number;
+  menuDiarioId: number;
+  tipo: TipoItem;
+  nombre: string;
+  disponible: boolean;
+}
+
+export interface MenuDiario {
+  id: number;
+  fecha: string;
+  precio: number;
+  stock: number;
+  vendidos: number;
+  activo: boolean;
+  items: MenuDiarioItem[];
+  createdAt: string;
+}
+
+export interface MenuDiarioPayload {
+  fecha: string;
+  precio: number;
+  stock?: number;
+  items: { tipo: TipoItem; nombre: string }[];
+}
+
 
 // ─── USUARIOS ─────────────────────────────────────────────────────────────────
 export type RolUsuario = 'admin' | 'mesero' | 'cocina';

@@ -16,6 +16,19 @@ export const getUsers = async (_req: Request, res: Response): Promise<void> => {
   }
 };
 
+// GET /api/users/todos — trae activos e inactivos (solo admin)
+export const getAllUsers = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const users = await User.findAll({
+      order: [['nombre', 'ASC']],
+      // sin where: { activo: true } — trae todos
+    });
+    res.json({ ok: true, data: users });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: 'Error al obtener usuarios' });
+  }
+};
+
 // POST /api/users
 export const crearUser = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -50,6 +63,22 @@ export const crearUser = async (req: Request, res: Response): Promise<void> => {
     res.status(201).json({ ok: true, data: user }); // toJSON() quita el hash
   } catch (err) {
     res.status(500).json({ ok: false, message: 'Error al crear usuario' });
+  }
+};
+
+// PATCH /api/users/:id/reactivar
+export const reactivarUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) { res.status(400).json({ ok: false, message: 'ID inválido' }); return; }
+
+    const user = await User.findByPk(id);
+    if (!user) { res.status(404).json({ ok: false, message: 'Usuario no encontrado' }); return; }
+
+    await user.update({ activo: true });
+    res.json({ ok: true, data: user });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: 'Error al reactivar usuario' });
   }
 };
 

@@ -30,11 +30,11 @@ export function useMesas() {
       if (mesaEditar) {
         const actualizada = await editarMesa(mesaEditar.id, data);
         setMesas(prev => prev.map(m => m.id === mesaEditar.id ? actualizada : m));
-        sileo.success({ title: 'Mesa actualizada ✅' });
+        sileo.success({ title: 'Mesa actualizada ' });
       } else {
         const nueva = await crearMesa(data);
         setMesas(prev => [...prev, nueva]);
-        sileo.success({ title: 'Mesa creada ✅' });
+        sileo.success({ title: 'Mesa creada ' });
       }
       setModalAbierto(false);
       setMesaEditar(null);

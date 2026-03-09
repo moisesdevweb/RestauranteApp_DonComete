@@ -1,5 +1,5 @@
 'use client';
-import { Edit2, Trash2 } from 'lucide-react';
+import { Edit2, Trash2, RefreshCw } from 'lucide-react';
 import { Usuario } from '@/modules/admin/types/admin.types';
 
 const rolStyle: Record<string, string> = {
@@ -15,13 +15,14 @@ const rolLabel: Record<string, string> = {
 };
 
 interface TablaUsuariosProps {
-  usuarios: Usuario[];
-  loading: boolean;
-  onEditar: (u: Usuario) => void;
-  onEliminar: (u: Usuario) => void;
+  usuarios:        Usuario[];
+  loading:         boolean;
+  onEditar:        (u: Usuario) => void;
+  onEliminar:      (u: Usuario) => void;
+  onReactivar:     (id: number) => void;
 }
 
-export function TablaUsuarios({ usuarios, loading, onEditar, onEliminar }: TablaUsuariosProps) {
+export function TablaUsuarios({ usuarios, loading, onEditar, onEliminar, onReactivar }: TablaUsuariosProps) {
   return (
     <div className="bg-[#1a1f2e] border border-white/10 rounded-2xl overflow-hidden">
       <table className="w-full">
@@ -40,7 +41,13 @@ export function TablaUsuarios({ usuarios, loading, onEditar, onEliminar }: Tabla
               </td></tr>
             ))
           ) : usuarios.map(u => (
-            <tr key={u.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+            // ← fila opaca si está inactivo
+            <tr key={u.id}
+              className={`border-b border-white/5 transition-colors ${
+                u.activo
+                  ? 'hover:bg-white/[0.02]'
+                  : 'opacity-40 hover:opacity-60'
+              }`}>
 
               {/* Usuario */}
               <td className="px-5 py-3">
@@ -77,7 +84,9 @@ export function TablaUsuarios({ usuarios, loading, onEditar, onEliminar }: Tabla
               {/* Estado */}
               <td className="px-5 py-3">
                 <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                  u.activo ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                  u.activo
+                    ? 'bg-emerald-500/20 text-emerald-400'
+                    : 'bg-red-500/20 text-red-400'
                 }`}>
                   {u.activo ? 'Activo' : 'Inactivo'}
                 </span>
@@ -86,14 +95,24 @@ export function TablaUsuarios({ usuarios, loading, onEditar, onEliminar }: Tabla
               {/* Acciones */}
               <td className="px-5 py-3">
                 <div className="flex gap-2">
-                  <button onClick={() => onEditar(u)}
-                    className="p-1.5 rounded-lg bg-[#2a3040] text-white/60 hover:text-white transition-colors cursor-pointer">
-                    <Edit2 size={14} />
-                  </button>
-                  <button onClick={() => onEliminar(u)}
-                    className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer">
-                    <Trash2 size={14} />
-                  </button>
+                  {u.activo ? (
+                    <>
+                      <button onClick={() => onEditar(u)}
+                        className="p-1.5 rounded-lg bg-[#2a3040] text-white/60 hover:text-white transition-colors cursor-pointer">
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={() => onEliminar(u)}
+                        className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer">
+                        <Trash2 size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    // Solo botón reactivar si está inactivo
+                    <button onClick={() => onReactivar(u.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-medium transition-colors cursor-pointer">
+                      <RefreshCw size={13} /> Reactivar
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>

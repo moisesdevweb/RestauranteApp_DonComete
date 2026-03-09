@@ -14,7 +14,7 @@ export default function UsuariosPage() {
     usuarios, loading, guardando,
     usuarioEditar, modalAbierto,
     conteo,
-    handleGuardar, handleEliminar,
+    handleGuardar, handleEliminar, handleReactivar,
     abrirCrear, abrirEditar, cerrarModal,
   } = useUsuarios();
 
@@ -49,6 +49,7 @@ export default function UsuariosPage() {
         loading={loading}
         onEditar={abrirEditar}
         onEliminar={setUserAEliminar}
+        onReactivar={handleReactivar}
       />
 
       {/* Modales */}

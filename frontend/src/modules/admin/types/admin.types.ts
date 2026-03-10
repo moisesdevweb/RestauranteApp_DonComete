@@ -131,6 +131,7 @@ export interface Orden {
 export interface KpisReporte {
   totalVentas: number;
   totalMesas: number;
+  ordenesPagadas: number;
   ticketPromedio: number;
 }
 

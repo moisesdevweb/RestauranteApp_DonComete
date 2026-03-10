@@ -1,10 +1,12 @@
 'use client';
+import { useState } from 'react';                          
 import { useParams } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useMesaPedido } from '@/modules/mesero/hooks/useMesaPedido';
 import { ModalProducto } from '@/modules/mesero/components/ModalProducto';
+import { ModalCobro } from '@/modules/mesero/components/ModalCobro';  
 import { MenuDiarioSelector } from '@/modules/mesero/components/MenuDiarioSelector';
 import { CarritoPanel } from '@/modules/mesero/components/CarritoPanel';
 import { ComensalesBar } from '@/modules/mesero/components/ComensalesBar';
@@ -15,27 +17,32 @@ export default function MesaPage() {
   const router = useRouter();
   const mesaId = parseInt(params.id as string);
 
+  const [modalCobro, setModalCobro] = useState(false);   
+
   const {
-    // Mesa
     mesa, ordenCreada, enviando, nombreCliente, setNombreCliente,
-    // Comensales
     comensales, comensalActivo, setComensalActivo,
     numComensales, setNumComensales, itemsYaEnviados,
-    // Productos
     categorias, menuHoy, categoriaActiva, setCategoriaActiva,
     tabActivo, setTabActivo, productosFiltrados,
-    // Modal
     productoModal, setProductoModal,
-    // Store
     items, totalItems, totalPrecio, itemsPorComensal, quitarItem,
-    // Handlers
     handleAgregarProducto, handleAgregarMenu, handleEnviarCocina,
+    ordenId,                                             
   } = useMesaPedido(mesaId);
+
+  // Total general = lo ya enviado + lo nuevo en carrito
+  const totalGeneral =
+    itemsYaEnviados.reduce((acc, i) => acc + Number(i.precioUnitario) * i.cantidad, 0)
+    + totalPrecio();
+
+  // Puede cobrar si hay orden activa y al menos un item enviado
+  const puedeCobrar = ordenCreada && itemsYaEnviados.length > 0;
 
   return (
     <div className="min-h-screen bg-[#0f1117] text-white flex flex-col">
 
-      {/* Header */}
+      {/* Header — sin cambios */}
       <header className="bg-[#1a1f2e] border-b border-white/10 px-4 py-3 flex items-center gap-4">
         <button
           onClick={() => router.push('/mesero')}
@@ -65,7 +72,7 @@ export default function MesaPage() {
         />
       </header>
 
-      {/* Comensales */}
+      {/* Comensales — sin cambios */}
       <ComensalesBar
         comensales={comensales}
         comensalActivo={comensalActivo}
@@ -79,11 +86,9 @@ export default function MesaPage() {
       />
 
       <div className="flex flex-1 overflow-hidden">
-
-        {/* Contenido principal */}
         <div className="flex-1 flex flex-col overflow-hidden">
 
-          {/* Tabs carta / menú */}
+          {/* Tabs carta / menú — sin cambios */}
           <div className="px-4 pt-4 flex gap-2">
             <button
               onClick={() => setTabActivo('carta')}
@@ -112,7 +117,7 @@ export default function MesaPage() {
             </button>
           </div>
 
-          {/* Tab: Carta */}
+          {/* Tab: Carta — sin cambios */}
           {tabActivo === 'carta' && (
             <>
               <div className="px-4 pt-3 flex gap-2 overflow-x-auto pb-1">
@@ -179,7 +184,7 @@ export default function MesaPage() {
             </>
           )}
 
-          {/* Tab: Menú del día */}
+          {/* Tab: Menú del día — sin cambios */}
           {tabActivo === 'menu' && (
             <div className="flex-1 overflow-y-auto p-4">
               {!menuHoy ? (
@@ -193,7 +198,7 @@ export default function MesaPage() {
           )}
         </div>
 
-        {/* Panel carrito lateral */}
+        {/* Panel carrito — agrega las 3 props nuevas */}
         <CarritoPanel
           items={items}
           itemsYaEnviados={itemsYaEnviados}
@@ -202,12 +207,15 @@ export default function MesaPage() {
           enviando={enviando}
           totalItems={totalItems}
           totalPrecio={totalPrecio}
+          totalGeneral={totalGeneral}           
+          puedeCobrar={puedeCobrar}            
           onQuitarItem={quitarItem}
           onEnviarCocina={handleEnviarCocina}
+          onCobrar={() => setModalCobro(true)}  
         />
       </div>
 
-      {/* Modal producto */}
+      {/* Modal producto — sin cambios */}
       <AnimatePresence>
         {productoModal && (
           <ModalProducto
@@ -217,6 +225,22 @@ export default function MesaPage() {
           />
         )}
       </AnimatePresence>
+
+      {/* Modal cobro — nuevo */}
+      <AnimatePresence>
+        {modalCobro && ordenId && (
+          <ModalCobro
+            ordenId={ordenId}
+            total={totalGeneral}
+            mesa={`Mesa ${mesa?.numero}`}
+            onCobrado={() => {
+              router.push('/mesero');
+            }}
+            onCerrar={() => setModalCobro(false)}
+          />
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

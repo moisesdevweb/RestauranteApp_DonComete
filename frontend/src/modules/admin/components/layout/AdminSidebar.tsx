@@ -60,7 +60,7 @@ export function AdminSidebar() {
       <nav className="flex-1 py-4 px-2 space-y-0.5 overflow-y-auto overflow-x-hidden">
         {navItems.map(({ href, label, icono: Icono }) => {
           const activo = pathname === href ||
-            (href !== '/admin' && pathname.startsWith(href));
+            (href !== '/admin' && pathname.startsWith(href + '/'));
 
           return (
             <Link key={href} href={href}
@@ -113,4 +113,17 @@ export function AdminSidebar() {
       </div>
     </aside>
   );
+
+
+
+
+
+
+
+
+
+
+
+
+  
 }

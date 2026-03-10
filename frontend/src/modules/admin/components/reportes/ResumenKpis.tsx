@@ -32,7 +32,7 @@ export function ResumenKpis({ kpis, loading }: ResumenKpisProps) {
     },
     {
       label: 'Órdenes Pagadas',
-      valor: kpis?.totalMesas ?? '—',
+      valor: kpis?.ordenesPagadas ?? '—',
       icono: ShoppingBag,
       color: 'text-purple-400',
       bg:    'bg-purple-500/10',

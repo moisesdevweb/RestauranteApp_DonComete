@@ -1,6 +1,5 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { sileo } from 'sileo';
 import { getMesas } from '@/modules/mesero/services/mesa.service';
 import { crearOrden, getOrdenMesa, agregarItems, enviarACocina } from '@/modules/mesero/services/orden.service';
@@ -15,7 +14,6 @@ export interface SeleccionMenu {
 }
 
 export function useMesaPedido(mesaId: number) {
-  const router = useRouter();
   const { ordenId, items, setOrdenId, agregarItem, quitarItem, limpiar, totalItems, totalPrecio, itemsPorComensal } = usePedidoStore();
 
   const [mesa, setMesa] = useState<Mesa | null>(null);
@@ -116,65 +114,83 @@ export function useMesaPedido(mesaId: number) {
   };
 
   const handleEnviarCocina = async () => {
-    if (items.length === 0) {
-      sileo.error({ title: 'Agrega al menos un item' });
-      return;
-    }
-    setEnviando(true);
-    try {
-      let idOrden = ordenId;
+  if (items.length === 0) {
+    sileo.error({ title: 'Agrega al menos un item' });
+    return;
+  }
+  setEnviando(true);
+  try {
+    let idOrden = ordenId;
 
-      if (!idOrden) {
-        const nuevaOrden = await crearOrden(
-          mesaId,
-          comensales.map(c => ({ nombre: c.nombre || undefined, numero: c.numero }))
-        );
-        idOrden = nuevaOrden.orden.id;
-        const comensalesReales = nuevaOrden.comensales;
-        setOrdenId(idOrden!);
-        setOrdenCreada(true);
+    if (!idOrden) {
+      const nuevaOrden = await crearOrden(
+        mesaId,
+        comensales.map(c => ({ nombre: c.nombre || undefined, numero: c.numero }))
+      );
+      idOrden = nuevaOrden.orden.id;
+      const comensalesReales = nuevaOrden.comensales;
+      setOrdenId(idOrden!);
+      setOrdenCreada(true);
+      setComensales(comensalesReales); // ← actualiza comensales con IDs reales
 
-        const itemsMapeados = items.map(item => {
-          const indexComensal = comensales.findIndex(c => c.id === item.comensalId);
-          return {
-            comensalId: comensalesReales[indexComensal]?.id || comensalesReales[0].id,
-            tipo: item.tipo,
-            productoId: item.productoId,
-            menuDiarioId: item.menuDiarioId,
-            cantidad: item.cantidad,
-            nota: item.nota,
-          };
-        });
-        await agregarItems(idOrden!, itemsMapeados);
-      } else {
-        const itemsMapeados = items.map(item => ({
-          comensalId: item.comensalId,
+      const itemsMapeados = items.map(item => {
+        const indexComensal = comensales.findIndex(c => c.id === item.comensalId);
+        return {
+          comensalId: comensalesReales[indexComensal]?.id || comensalesReales[0].id,
           tipo: item.tipo,
           productoId: item.productoId,
           menuDiarioId: item.menuDiarioId,
           cantidad: item.cantidad,
           nota: item.nota,
-        }));
-        await agregarItems(idOrden, itemsMapeados);
-      }
-
-      await enviarACocina(idOrden!);
-      sileo.success({
-        title: '¡Orden enviada a cocina! 🍽️',
-        description: `Mesa ${mesa?.numero} · ${items.length} items nuevos`,
+        };
       });
-      limpiar();
-      router.push('/mesero');
-    } catch {
-      sileo.error({ title: 'Error al enviar la orden' });
-    } finally {
-      setEnviando(false);
+      await agregarItems(idOrden!, itemsMapeados);
+    } else {
+      const itemsMapeados = items.map(item => ({
+        comensalId: item.comensalId,
+        tipo: item.tipo,
+        productoId: item.productoId,
+        menuDiarioId: item.menuDiarioId,
+        cantidad: item.cantidad,
+        nota: item.nota,
+      }));
+      await agregarItems(idOrden, itemsMapeados);
     }
-  };
+
+    await enviarACocina(idOrden!);
+
+    // ← Actualiza itemsYaEnviados con los nuevos para mostrarlos en el carrito
+    const ordenActualizada = await getOrdenMesa(mesaId);
+    if (ordenActualizada) {
+      const yaEnviados = (ordenActualizada.comensales || []).flatMap((c: Comensal) =>
+        (c.detalles || []).map((d: DetalleOrden) => ({
+          ...d,
+          nombreProducto: d.producto?.nombre || 'Menú del Día',
+          numeroComensal: c.numero,
+        }))
+      );
+      setItemsYaEnviados(yaEnviados);
+    }
+
+    sileo.success({
+      title: '¡Orden enviada a cocina! 🍽️',
+      description: `Mesa ${mesa?.numero} · ${items.length} items nuevos`,
+    });
+
+    limpiar(); // limpia solo el carrito local, NO redirige
+
+  } catch {
+    sileo.error({ title: 'Error al enviar la orden' });
+  } finally {
+    setEnviando(false);
+  }
+};
+
 
   return {
     // Estado mesa
     mesa, ordenCreada, enviando, nombreCliente, setNombreCliente,
+    ordenId, 
     // Comensales
     comensales, comensalActivo, setComensalActivo, numComensales, setNumComensales,
     itemsYaEnviados,
@@ -188,4 +204,5 @@ export function useMesaPedido(mesaId: number) {
     // Handlers
     handleAgregarProducto, handleAgregarMenu, handleEnviarCocina,
   };
+
 }

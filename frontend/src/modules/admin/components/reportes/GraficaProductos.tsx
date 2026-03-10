@@ -22,7 +22,7 @@ function TooltipCustom({ active, payload, label }: TooltipProductosProps) {
         {Number(payload[0]?.value ?? 0)} vendidos
       </div>
       <div className="text-white/40 text-xs">
-        S/. {Number(payload[1]?.value ?? 0).toFixed(2)}
+        S/. {Number(payload[1]?.value ?? 0).toFixed(2)} en ventas
       </div>
     </div>
   );
@@ -52,7 +52,7 @@ export function GraficaProductos({ data, loading }: GraficaProductosProps) {
           <Bar dataKey="cantidad" radius={[6,6,0,0]}>
             {data.map((_, i) => <Cell key={i} fill={COLORES[i % COLORES.length]} />)}
           </Bar>
-          <Bar dataKey="ingresos" hide />
+          <Bar dataKey="total" hide />
         </BarChart>
       </ResponsiveContainer>
     </div>

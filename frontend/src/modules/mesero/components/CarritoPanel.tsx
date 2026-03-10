@@ -1,5 +1,5 @@
 'use client';
-import { ShoppingCart, Send, Trash2, Clock } from 'lucide-react';
+import { ShoppingCart, Send, Trash2, Clock, CheckCircle } from 'lucide-react';
 import { ItemCarrito } from '@/modules/mesero/store/pedido.store';
 import { Comensal, DetalleOrden } from '@/types';
 
@@ -9,23 +9,30 @@ interface CarritoPanelProps {
   comensales: Comensal[];
   ordenCreada: boolean;
   enviando: boolean;
+  totalGeneral:  number;  // suma de items ya enviados + nuevos
+  puedeCobrar:   boolean; // true si hay orden y todos los items están listos o ya enviados
   totalItems: () => number;
   totalPrecio: () => number;
   onQuitarItem: (id: string) => void;
   onEnviarCocina: () => void;
+  onCobrar:      () => void;
+  
 }
-
 export function CarritoPanel({
   items,
   itemsYaEnviados,
   comensales,
   ordenCreada,
   enviando,
+  totalGeneral,   
+  puedeCobrar,    
   totalItems,
   totalPrecio,
   onQuitarItem,
   onEnviarCocina,
+  onCobrar,       
 }: CarritoPanelProps) {
+
   return (
     <div className="hidden md:flex w-80 bg-[#1a1f2e] border-l border-white/10 flex-col">
 
@@ -123,27 +130,40 @@ export function CarritoPanel({
       </div>
 
       {/* Total y botón enviar */}
-      <div className="p-4 border-t border-white/10">
+      <div className="p-4 border-t border-white/10 space-y-2">
         {items.length > 0 && (
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-1">
             <span className="text-white/60 text-sm">Nuevos items:</span>
             <span className="text-orange-400 font-bold">S/. {totalPrecio().toFixed(2)}</span>
           </div>
         )}
+
+        {/* Total general */}
+        {ordenCreada && (
+          <div className="flex items-center justify-between py-2 border-t border-white/10">
+            <span className="text-white/80 text-sm font-medium">Total mesa:</span>
+            <span className="text-white font-bold text-lg">S/. {totalGeneral.toFixed(2)}</span>
+          </div>
+        )}
+
+        {/* Botón enviar cocina */}
         <button
           onClick={onEnviarCocina}
           disabled={enviando || items.length === 0}
-          className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
-        >
-          {enviando ? (
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <>
-              <Send size={18} />
-              {ordenCreada ? 'Enviar Nuevos a Cocina' : 'Enviar a Cocina'}
-            </>
-          )}
+          className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2">
+          {enviando
+            ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            : <><Send size={18} />{ordenCreada ? 'Enviar Nuevos a Cocina' : 'Enviar a Cocina'}</>
+          }
         </button>
+
+        {/* Botón cobrar — aparece cuando hay orden activa */}
+        {puedeCobrar && (
+          <button onClick={onCobrar}
+            className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2">
+            <CheckCircle size={18} /> Cobrar Mesa
+          </button>
+        )}
       </div>
     </div>
   );

@@ -4,8 +4,9 @@ import { Orden, Pago, DetallePago, DetalleOrden, Producto, Comensal, Mesa, User 
 import { EstadoOrden } from '../types/enums';
 
 // ─── Helper: rango de fechas ───────────────────────────
+// UTC explícito, cubre el día completo en UTC
 const getRango = (desde: string, hasta: string) => ({
-  [Op.between]: [new Date(desde + 'T00:00:00'), new Date(hasta + 'T23:59:59')],
+  [Op.between]: [new Date(desde + 'T00:00:00.000Z'), new Date(hasta + 'T23:59:59.999Z')],
 });
 
 // GET /api/reportes/diario?fecha=2026-02-26

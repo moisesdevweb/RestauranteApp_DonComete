@@ -15,10 +15,10 @@ export const crearOrden = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // Verificar que la mesa exista y esté libre
+    // Verificar que la mesa exista y esté libre o reservada
     const mesa = await Mesa.findByPk(mesaId);
     if (!mesa) { res.status(404).json({ ok: false, message: 'Mesa no encontrada' }); return; }
-    if (mesa.estado !== EstadoMesa.LIBRE) {
+    if (mesa.estado !== EstadoMesa.LIBRE && mesa.estado !== EstadoMesa.RESERVADA) {
       res.status(400).json({ ok: false, message: 'La mesa no está disponible' });
       return;
     }
@@ -42,7 +42,7 @@ export const crearOrden = async (req: Request, res: Response): Promise<void> => 
       )
     );
 
-    // Cambiar estado de mesa a ocupada
+    // Cambiar estado de mesa a ocupada (quita reserva si la había)
     await mesa.update({ estado: EstadoMesa.OCUPADA });
 
     res.status(201).json({

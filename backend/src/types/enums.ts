@@ -8,6 +8,7 @@ export enum EstadoMesa {
   LIBRE             = 'libre',
   OCUPADA           = 'ocupada',
   CUENTA_PENDIENTE  = 'cuenta_pendiente',
+  RESERVADA         = 'reservada',          // mesa apartada por un admin
 }
 
 export enum EstadoOrden {

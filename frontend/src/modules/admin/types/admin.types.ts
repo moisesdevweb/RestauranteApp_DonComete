@@ -7,15 +7,17 @@ export interface PaginatedResponse<T> {
 }
 
 // ─── MESAS ────────────────────────────────────────────────────────────────────
-export type EstadoMesa = 'libre' | 'ocupada' | 'reservada' | 'inactiva';
+// nota: ‘inactiva’ no es un valor real de la base de datos, usamos el booleano `activo`
+export type EstadoMesa = 'libre' | 'ocupada' | 'reservada' | 'cuenta_pendiente';
 
 export interface Mesa {
   id: number;
   numero: number;
+  piso: number;               // added so admin can filter/group by floor
   capacidad: number;
   estado: EstadoMesa;
   qrToken: string;
-  activa: boolean;
+  activo: boolean;
   createdAt: string;
 }
 

@@ -12,6 +12,7 @@ const estadoConfig = {
   libre:            { color: 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500',  texto: 'LIBRE',             subtext: 'Toca para tomar pedido' },
   ocupada:          { color: 'bg-orange-600 hover:bg-orange-500 border-orange-500',     texto: 'OCUPADA',           subtext: 'Pedido activo' },
   cuenta_pendiente: { color: 'bg-red-700 hover:bg-red-600 border-red-600',              texto: 'CUENTA PENDIENTE',  subtext: 'Pendiente de pago' },
+  reservada:        { color: 'bg-blue-600 hover:bg-blue-500 border-blue-500',           texto: 'RESERVADA',         subtext: 'Reservada por admin' },
 };
 
 function Reloj() {
@@ -189,6 +190,10 @@ export default function MeseroPage() {
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-red-600 rounded-full" />
             Cuenta · Pendiente de pago
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-blue-500 rounded-full" />
+            Reservada · Apartada por admin
           </div>
         </div>
       </div>

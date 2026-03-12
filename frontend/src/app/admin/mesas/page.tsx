@@ -5,6 +5,7 @@ import { Plus, Building2, Users, LayoutGrid } from 'lucide-react';
 import { useMesas } from '@/modules/admin/hooks/useMesas';
 import { KpiCard } from '@/modules/admin/components/shared/KpiCard';
 import { ConfirmModal } from '@/modules/admin/components/shared/ConfirmModal';
+import { FilterStatus } from '@/modules/admin/components/shared/FilterStatus';
 import { CardMesa } from '@/modules/admin/components/mesas/CardMesa';
 import { TablaMesas } from '@/modules/admin/components/mesas/TablaMesas';
 import { ModalMesa } from '@/modules/admin/components/mesas/ModalMesa';
@@ -14,7 +15,8 @@ export default function MesasPage() {
   const {
     mesas, loading, guardando,
     mesaEditar, modalAbierto, pisos,
-    handleGuardar, handleEliminar,
+    filtroEstado, setFiltroEstado,
+    handleGuardar, handleEliminar, handleCambiarEstado, handleReactivar,
     abrirCrear, abrirEditar, cerrarModal,
   } = useMesas();
 
@@ -32,10 +34,13 @@ export default function MesasPage() {
           <h1 className="text-white text-2xl font-bold">Gestión de Mesas</h1>
           <p className="text-white/40 text-sm">Administra las mesas del restaurante</p>
         </div>
-        <button onClick={abrirCrear}
-          className="flex items-center gap-2 bg-orange-500 hover:bg-orange-400 text-white px-4 py-2.5 rounded-xl font-medium transition-colors cursor-pointer">
-          <Plus size={18} /> Agregar Mesa
-        </button>
+        <div className="flex items-center gap-4">
+          <FilterStatus value={filtroEstado} onChange={setFiltroEstado} />
+          <button onClick={abrirCrear}
+            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-400 text-white px-4 py-2.5 rounded-xl font-medium transition-colors cursor-pointer">
+            <Plus size={18} /> Agregar Mesa
+          </button>
+        </div>
       </div>
 
       {/* KPIs */}
@@ -75,6 +80,8 @@ export default function MesasPage() {
               <CardMesa key={mesa.id} mesa={mesa}
                 onEditar={() => abrirEditar(mesa)}
                 onEliminar={() => setMesaAEliminar(mesa)}
+                onToggleReserva={handleCambiarEstado}
+                onReactivar={handleReactivar}
               />
             ))}
           </div>
@@ -87,6 +94,8 @@ export default function MesasPage() {
         loading={loading}
         onEditar={abrirEditar}
         onEliminar={setMesaAEliminar}
+        onToggleReserva={handleCambiarEstado}
+        onReactivar={handleReactivar}
       />
 
       {/* Modales */}

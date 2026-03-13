@@ -3,19 +3,26 @@ import { Op } from 'sequelize';
 import { Orden, Pago, DetallePago, DetalleOrden, Producto, Mesa, User } from '../models';
 import { EstadoOrden } from '../types/enums';
 
-// ─── Helper: rango de fechas UTC explícito ─────────────────────────────────────
+// Peru UTC-5
+const OFFSET_MS = 5 * 60 * 60 * 1000;
+
+// Convierte string ISO almacenado en UTC a fecha/hora Peru
+const toLocalPeru = (isoStr: string): Date =>
+  new Date(new Date(isoStr).getTime() - OFFSET_MS);
+
+// Rango ajustado a Peru: medianoche Peru = 05:00 UTC
 const getRango = (desde: string, hasta: string) => ({
   [Op.between]: [
-    new Date(desde + 'T00:00:00.000Z'),
-    new Date(hasta + 'T23:59:59.999Z'),
+    new Date(new Date(desde + 'T00:00:00.000Z').getTime() + OFFSET_MS),
+    new Date(new Date(hasta + 'T23:59:59.999Z').getTime() + OFFSET_MS),
   ],
 });
 
-// ─── Helper: fecha local sin offset UTC ───────────────────────────────────────
+// Formatea Date a YYYY-MM-DD usando hora local del servidor
 const fmt = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-// ─── Helper: calcular métodos de pago ──────────────────────────────────────────
+// Agrupa montos por metodo de pago
 const calcularMetodosPago = (pagos: any[]): Record<string, number> => {
   const metodosPago: Record<string, number> = {};
   pagos.forEach(pago => {
@@ -26,16 +33,10 @@ const calcularMetodosPago = (pagos: any[]): Record<string, number> => {
   return metodosPago;
 };
 
-// ─── Helper: extraer fecha local del string ISO almacenado en BD ──────────────
-const parsearFechaISO = (isoStr: string): Date => {
-  const [y, m, d] = isoStr.toString().slice(0, 10).split('-').map(Number);
-  return new Date(y, m - 1, d);
-};
-
-// GET /api/reportes/diario?fecha=2026-02-26
+// GET /api/reportes/diario?fecha=2026-03-12
 export const getReporteDiario = async (req: Request, res: Response): Promise<void> => {
   try {
-    const fecha = (req.query.fecha as string) || new Date().toISOString().split('T')[0];
+    const fecha = (req.query.fecha as string) || fmt(new Date());
 
     const pagos = await Pago.findAll({
       include: [
@@ -55,14 +56,14 @@ export const getReporteDiario = async (req: Request, res: Response): Promise<voi
       ],
     });
 
-    const totalVentas = pagos.reduce((sum, p) => sum + Number(p.total), 0);
+    const totalVentas    = pagos.reduce((sum, p) => sum + Number(p.total), 0);
     const ordenesPagadas = pagos.length;
-    const totalMesas = new Set(pagos.map(p => p.orden.mesaId)).size;
+    const totalMesas     = new Set(pagos.map(p => p.orden.mesaId)).size;
     const ticketPromedio = ordenesPagadas > 0 ? totalVentas / ordenesPagadas : 0;
 
     const ventasPorHora: Record<number, number> = {};
     pagos.forEach(pago => {
-      const hora = parseInt(pago.orden.cerradoEn!.toString().slice(11, 13));
+      const hora = toLocalPeru(pago.orden.cerradoEn!.toString()).getUTCHours();
       ventasPorHora[hora] = (ventasPorHora[hora] || 0) + Number(pago.total);
     });
 
@@ -82,10 +83,10 @@ export const getReporteDiario = async (req: Request, res: Response): Promise<voi
       data: {
         fecha,
         kpis: {
-          totalVentas:     Number(totalVentas.toFixed(2)),
+          totalVentas:    Number(totalVentas.toFixed(2)),
           totalMesas,
           ordenesPagadas,
-          ticketPromedio:  Number(ticketPromedio.toFixed(2)),
+          ticketPromedio: Number(ticketPromedio.toFixed(2)),
         },
         ventasPorHora,
         metodosPago,
@@ -98,7 +99,7 @@ export const getReporteDiario = async (req: Request, res: Response): Promise<voi
   }
 };
 
-// GET /api/reportes/semanal?fecha=2026-02-26
+// GET /api/reportes/semanal?fecha=2026-03-12
 export const getReporteSemanal = async (req: Request, res: Response): Promise<void> => {
   try {
     const fechaStr = (req.query.fecha as string) || fmt(new Date());
@@ -131,17 +132,16 @@ export const getReporteSemanal = async (req: Request, res: Response): Promise<vo
     const mesasPorDia:  Record<string, number> = {};
 
     pagos.forEach(pago => {
-      const fechaPago = parsearFechaISO(pago.orden.cerradoEn!.toString());
-      const nombre    = diasNombres[fechaPago.getDay()];
+      const fechaPago = toLocalPeru(pago.orden.cerradoEn!.toString());
+      const nombre    = diasNombres[fechaPago.getUTCDay()];
       ventasPorDia[nombre] = (ventasPorDia[nombre] || 0) + Number(pago.total);
       mesasPorDia[nombre]  = (mesasPorDia[nombre]  || 0) + 1;
     });
 
-    const totalVentas = pagos.reduce((sum, p) => sum + Number(p.total), 0);
+    const totalVentas    = pagos.reduce((sum, p) => sum + Number(p.total), 0);
     const ordenesPagadas = pagos.length;
-    const totalMesas = new Set(pagos.map(p => p.orden.mesaId)).size;
-
-    const metodosPago = calcularMetodosPago(pagos);
+    const totalMesas     = new Set(pagos.map(p => p.orden.mesaId)).size;
+    const metodosPago    = calcularMetodosPago(pagos);
 
     res.json({
       ok: true,
@@ -165,15 +165,15 @@ export const getReporteSemanal = async (req: Request, res: Response): Promise<vo
   }
 };
 
-// GET /api/reportes/mensual?año=2026&mes=2
+// GET /api/reportes/mensual?año=2026&mes=3
 export const getReporteMensual = async (req: Request, res: Response): Promise<void> => {
   try {
     const año = parseInt(req.query.año as string) || new Date().getFullYear();
     const mes = parseInt(req.query.mes as string) || new Date().getMonth() + 1;
 
-    const desde    = `${año}-${String(mes).padStart(2, '0')}-01`;
+    const desde     = `${año}-${String(mes).padStart(2, '0')}-01`;
     const ultimoDia = new Date(año, mes, 0).getDate();
-    const hasta    = `${año}-${String(mes).padStart(2, '0')}-${ultimoDia}`;
+    const hasta     = `${año}-${String(mes).padStart(2, '0')}-${ultimoDia}`;
 
     const pagos = await Pago.findAll({
       include: [
@@ -193,16 +193,15 @@ export const getReporteMensual = async (req: Request, res: Response): Promise<vo
     const mesasPorDia:  Record<number, number> = {};
 
     pagos.forEach(pago => {
-      const dia = parseInt(pago.orden.cerradoEn!.toString().slice(8, 10));
+      const dia = toLocalPeru(pago.orden.cerradoEn!.toString()).getUTCDate();
       ventasPorDia[dia] = (ventasPorDia[dia] || 0) + Number(pago.total);
       mesasPorDia[dia]  = (mesasPorDia[dia]  || 0) + 1;
     });
 
-    const totalVentas = pagos.reduce((sum, p) => sum + Number(p.total), 0);
+    const totalVentas    = pagos.reduce((sum, p) => sum + Number(p.total), 0);
     const ordenesPagadas = pagos.length;
-    const totalMesas = new Set(pagos.map(p => p.orden.mesaId)).size;
-
-    const metodosPago = calcularMetodosPago(pagos);
+    const totalMesas     = new Set(pagos.map(p => p.orden.mesaId)).size;
+    const metodosPago    = calcularMetodosPago(pagos);
 
     res.json({
       ok: true,
@@ -254,17 +253,16 @@ export const getReporteAnual = async (req: Request, res: Response): Promise<void
     mesesNombres.forEach(m => { ventasPorMes[m] = 0; mesasPorMes[m] = 0; });
 
     pagos.forEach(pago => {
-      const mesIndex = parseInt(pago.orden.cerradoEn!.toString().slice(5, 7)) - 1;
+      const mesIndex = toLocalPeru(pago.orden.cerradoEn!.toString()).getUTCMonth();
       const mes      = mesesNombres[mesIndex];
       ventasPorMes[mes] = (ventasPorMes[mes] || 0) + Number(pago.total);
       mesasPorMes[mes]  = (mesasPorMes[mes]  || 0) + 1;
     });
 
-    const totalVentas = pagos.reduce((sum, p) => sum + Number(p.total), 0);
+    const totalVentas    = pagos.reduce((sum, p) => sum + Number(p.total), 0);
     const ordenesPagadas = pagos.length;
-    const totalMesas = new Set(pagos.map(p => p.orden.mesaId)).size;
-
-    const metodosPago = calcularMetodosPago(pagos);
+    const totalMesas     = new Set(pagos.map(p => p.orden.mesaId)).size;
+    const metodosPago    = calcularMetodosPago(pagos);
 
     res.json({
       ok: true,
@@ -295,16 +293,16 @@ export const getComparativa = async (req: Request, res: Response): Promise<void>
     const ayer = new Date(hoy);
     ayer.setDate(hoy.getDate() - 1);
 
-    const diaHoy        = hoy.getDay();
-    const lunesEsta     = new Date(hoy);
+    const diaHoy          = hoy.getDay();
+    const lunesEsta       = new Date(hoy);
     lunesEsta.setDate(hoy.getDate() - (diaHoy === 0 ? 6 : diaHoy - 1));
-    const lunesAnterior = new Date(lunesEsta);
+    const lunesAnterior   = new Date(lunesEsta);
     lunesAnterior.setDate(lunesEsta.getDate() - 7);
     const domingoAnterior = new Date(lunesAnterior);
     domingoAnterior.setDate(lunesAnterior.getDate() + 6);
 
-    const mesActual  = hoy.getMonth() + 1;
-    const añoActual  = hoy.getFullYear();
+    const mesActual   = hoy.getMonth() + 1;
+    const añoActual   = hoy.getFullYear();
     const mesAnterior = mesActual === 1 ? 12 : mesActual - 1;
     const añoAnterior = mesActual === 1 ? añoActual - 1 : añoActual;
 
@@ -347,18 +345,18 @@ export const getComparativa = async (req: Request, res: Response): Promise<void>
       ok: true,
       data: {
         hoyVsAyer: {
-          actual:   Number(ventasHoy.toFixed(2)),
-          anterior: Number(ventasAyer.toFixed(2)),
+          actual:    Number(ventasHoy.toFixed(2)),
+          anterior:  Number(ventasAyer.toFixed(2)),
           variacion: variacion(ventasHoy, ventasAyer),
         },
         semanaVsSemana: {
-          actual:   Number(ventasEstaSemana.toFixed(2)),
-          anterior: Number(ventasSemanaAnterior.toFixed(2)),
+          actual:    Number(ventasEstaSemana.toFixed(2)),
+          anterior:  Number(ventasSemanaAnterior.toFixed(2)),
           variacion: variacion(ventasEstaSemana, ventasSemanaAnterior),
         },
         mesVsMes: {
-          actual:   Number(ventasEsteMes.toFixed(2)),
-          anterior: Number(ventasMesAnterior.toFixed(2)),
+          actual:    Number(ventasEsteMes.toFixed(2)),
+          anterior:  Number(ventasMesAnterior.toFixed(2)),
           variacion: variacion(ventasEsteMes, ventasMesAnterior),
         },
       },
@@ -369,7 +367,7 @@ export const getComparativa = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// GET /api/reportes/productos-top?limite=10&desde=2026-02-01&hasta=2026-02-28
+// GET /api/reportes/productos-top?limite=10&desde=2026-03-01&hasta=2026-03-12
 export const getProductosTop = async (req: Request, res: Response): Promise<void> => {
   try {
     const limite = parseInt(req.query.limite as string) || 10;

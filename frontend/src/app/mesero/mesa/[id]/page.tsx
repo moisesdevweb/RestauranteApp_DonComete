@@ -36,8 +36,12 @@ export default function MesaPage() {
     itemsYaEnviados.reduce((acc, i) => acc + Number(i.precioUnitario) * i.cantidad, 0)
     + totalPrecio();
 
-  // Puede cobrar si hay orden activa y al menos un item enviado
-  const puedeCobrar = ordenCreada && itemsYaEnviados.length > 0;
+  // Puede cobrar si hay orden activa, hay items enviados, y TODOS están listos
+  const puedeCobrar =
+    ordenCreada &&
+    itemsYaEnviados.length > 0 &&
+    items.length === 0 && // no hay items sin enviar
+    itemsYaEnviados.every(i => i.estado === 'listo');
 
   return (
     <div className="min-h-screen bg-[#0f1117] text-white flex flex-col">

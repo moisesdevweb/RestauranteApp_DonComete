@@ -157,11 +157,19 @@ export function CarritoPanel({
           }
         </button>
 
-        {/* Botón cobrar — aparece cuando hay orden activa */}
-        {puedeCobrar && (
-          <button onClick={onCobrar}
-            className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2">
-            <CheckCircle size={18} /> Cobrar Mesa
+        {/* Botón cobrar — siempre visible cuando hay orden, opaco hasta que todo esté listo */}
+        {ordenCreada && itemsYaEnviados.length > 0 && (
+          <button
+            onClick={puedeCobrar ? onCobrar : undefined}
+            disabled={!puedeCobrar}
+            className={`w-full font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 ${
+              puedeCobrar
+                ? 'bg-emerald-500 hover:bg-emerald-400 text-white cursor-pointer shadow-lg shadow-emerald-500/30'
+                : 'bg-[#2a3040] text-white/30 cursor-not-allowed border border-white/10'
+            }`}
+          >
+            <CheckCircle size={18} />
+            {puedeCobrar ? 'Cobrar Mesa' : 'Esperando cocina...'}
           </button>
         )}
       </div>

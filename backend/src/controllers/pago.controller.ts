@@ -52,8 +52,8 @@ export const cobrarOrden = async (req: Request, res: Response): Promise<void> =>
       )
     );
 
-        // Cerrar orden y liberar mesa
-    await orden.update({ estado: EstadoOrden.PAGADA });
+        // Cerrar orden, poner timestamp y liberar mesa
+    await orden.update({ estado: EstadoOrden.PAGADA, cerradoEn: new Date() });
     await Mesa.update({ estado: EstadoMesa.LIBRE }, { where: { id: orden.mesaId } });
 
     // Emitir estado actualizado de la mesa a todos

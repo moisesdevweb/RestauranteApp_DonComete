@@ -15,7 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es">
       <body className={geist.className}>
         {children}
-        <Toaster position="top-right" />
+        <Toaster position="top-right" theme='dark' />
       </body>
     </html>
   );

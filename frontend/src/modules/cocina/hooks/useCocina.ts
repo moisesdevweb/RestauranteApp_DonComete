@@ -11,20 +11,19 @@ export function useCocina() {
   const router = useRouter();
   const { logout } = useAuthStore();
 
-  const [ordenesNuevas, setOrdenesNuevas]       = useState<OrdenCocina[]>([]);
-  const [ordenesListas, setOrdenesListas]       = useState<OrdenCocina[]>([]);
-  const [ordenSeleccionada, setOrdenSeleccionada] = useState<OrdenCocina | null>(null);
-  const [marcando, setMarcando]                 = useState(false);
-  const [loading, setLoading]                   = useState(true);
+  const [ordenesNuevas, setOrdenesNuevas]           = useState<OrdenCocina[]>([]);
+  const [ordenesListas, setOrdenesListas]           = useState<OrdenCocina[]>([]);
+  const [ordenSeleccionada, setOrdenSeleccionada]   = useState<OrdenCocina | null>(null);
+  const [marcando, setMarcando]                     = useState(false);
+  const [loading, setLoading]                       = useState(true);
 
-  // ── Carga inicial ──────────────────────────────────
   const cargarOrdenes = useCallback(async () => {
     try {
       const data = await getOrdenescocina();
       setOrdenesNuevas(data.filter((o: OrdenCocina) => o.estado === 'en_cocina'));
       setOrdenesListas(data.filter((o: OrdenCocina) => o.estado === 'lista' || o.estado === 'pagada'));
     } catch {
-      console.error('Error al cargar órdenes');
+      console.error('Error al cargar ordenes');
     } finally {
       setLoading(false);
     }
@@ -32,23 +31,23 @@ export function useCocina() {
 
   useEffect(() => { cargarOrdenes(); }, [cargarOrdenes]);
 
-  // ── Socket.io ──────────────────────────────────────
   useSocket({
     'orden:nueva': (data: unknown) => {
       const orden = data as OrdenCocina;
+      // Si la mesa ya estaba en listos y pide mas, regresa a nuevos
+      setOrdenesListas(prev => prev.filter(o => o.id !== orden.id));
       setOrdenesNuevas(prev => {
         const existe = prev.find(o => o.id === orden.id);
         if (existe) return prev.map(o => o.id === orden.id ? orden : o);
         return [orden, ...prev];
       });
       sileo.action({
-        title: `🍽️ Mesa ${orden.mesa.numero} — Nuevos items`,
+        title: `Mesa ${orden.mesa.numero} — Nuevos items`,
         description: `${orden.comensales?.flatMap(c => c.detalles).length || 0} items`,
       });
     },
   });
 
-  // ── Handlers ──────────────────────────────────────
   const handleMarcarListo = async () => {
     if (!ordenSeleccionada) return;
     setMarcando(true);
@@ -60,11 +59,15 @@ export function useCocina() {
       await Promise.all(itemsPendientes.map(item => marcarItemListo(item.id)));
 
       setOrdenesNuevas(prev => prev.filter(o => o.id !== ordenSeleccionada.id));
-      setOrdenesListas(prev => [ordenSeleccionada, ...prev]);
+      setOrdenesListas(prev => {
+        const existe = prev.find(o => o.id === ordenSeleccionada.id);
+        if (existe) return prev;
+        return [{ ...ordenSeleccionada, estado: 'lista' as OrdenCocina['estado'] }, ...prev];
+      });
       setOrdenSeleccionada(null);
 
       sileo.success({
-        title: `Mesa ${ordenSeleccionada.mesa.numero} lista `,
+        title: `Mesa ${ordenSeleccionada.mesa.numero} lista`,
         description: 'El mesero fue notificado',
       });
     } catch {

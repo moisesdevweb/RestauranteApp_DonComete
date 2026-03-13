@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 
-
 export interface ItemCarrito {
-  id: string; // temporal: `${comensalId}-${productoId}-${timestamp}`
+  id: string;
   comensalId: number;
   tipo: 'carta' | 'menu_dia';
   productoId?: number;
@@ -19,6 +18,7 @@ interface PedidoStore {
   setOrdenId: (id: number) => void;
   agregarItem: (item: Omit<ItemCarrito, 'id'>) => void;
   quitarItem: (id: string) => void;
+  limpiarItems: () => void;
   limpiar: () => void;
   totalItems: () => number;
   totalPrecio: () => number;
@@ -41,6 +41,8 @@ export const usePedidoStore = create<PedidoStore>((set, get) => ({
 
   quitarItem: (id) =>
     set(state => ({ items: state.items.filter(i => i.id !== id) })),
+
+  limpiarItems: () => set({ items: [] }),
 
   limpiar: () => set({ ordenId: null, items: [] }),
 

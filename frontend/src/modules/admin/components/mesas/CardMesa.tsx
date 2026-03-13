@@ -37,7 +37,7 @@ export function CardMesa({ mesa, onEditar, onEliminar, onToggleReserva, onReacti
       <div className="text-white/40 text-xs flex items-center gap-1 mb-3">
         <Users size={12} />
         {mesa.capacidad} personas
-      </div>
+      </div>  
       <div className="flex gap-2">
         {mesa.activo ? (
           <>

@@ -1,14 +1,26 @@
 'use client';
-import { TrendingUp, ShoppingBag, DollarSign, Store } from 'lucide-react';
-import { KpisReporte } from '@/modules/admin/types/admin.types';
+import { TrendingUp, ShoppingBag, DollarSign, Store, Clock, Star, TrendingDown, Calendar } from 'lucide-react';
+import { KpisDiario, KpisSemanal, KpisMensual, KpisAnual } from '@/modules/admin/types/admin.types';
+import { VistaReporte } from '@/modules/admin/hooks/useReportes';
+
+type KpisUnion = KpisDiario | KpisSemanal | KpisMensual | KpisAnual;
 
 interface ResumenKpisProps {
-  kpis: KpisReporte | null;
+  vista:   VistaReporte;
+  kpis:    KpisUnion | null;
   loading: boolean;
 }
 
-export function ResumenKpis({ kpis, loading }: ResumenKpisProps) {
-  const items = [
+interface KpiItem {
+  label: string;
+  valor: string | number;
+  icono: React.ElementType;
+  color: string;
+  bg:    string;
+}
+
+function buildKpis(vista: VistaReporte, kpis: KpisUnion | null): KpiItem[] {
+  const base: KpiItem[] = [
     {
       label: 'Ventas Totales',
       valor: kpis ? `S/. ${Number(kpis.totalVentas).toFixed(2)}` : '—',
@@ -38,6 +50,75 @@ export function ResumenKpis({ kpis, loading }: ResumenKpisProps) {
       bg:    'bg-purple-500/10',
     },
   ];
+
+  // KPI extra según vista
+  if (vista === 'diario' && kpis) {
+    const k = kpis as KpisDiario;
+    base[2] = {
+      label: 'Hora Pico',
+      valor: k.horaPico ?? '—',
+      icono: Clock,
+      color: 'text-orange-400',
+      bg:    'bg-orange-500/10',
+    };
+  }
+
+  if (vista === 'semanal' && kpis) {
+    const k = kpis as KpisSemanal;
+    base.push(
+      {
+        label: 'Mejor Día',
+        valor: k.mejorDia ?? '—',
+        icono: Star,
+        color: 'text-yellow-400',
+        bg:    'bg-yellow-500/10',
+      },
+      {
+        label: 'Día Más Flojo',
+        valor: k.peorDia ?? '—',
+        icono: TrendingDown,
+        color: 'text-red-400',
+        bg:    'bg-red-500/10',
+      },
+    );
+  }
+
+  if (vista === 'mensual' && kpis) {
+    const k = kpis as KpisMensual;
+    base.push({
+      label: 'Mejor Semana',
+      valor: k.mejorSemana ?? '—',
+      icono: Calendar,
+      color: 'text-yellow-400',
+      bg:    'bg-yellow-500/10',
+    });
+  }
+
+  if (vista === 'anual' && kpis) {
+    const k = kpis as KpisAnual;
+    base.push(
+      {
+        label: 'Mejor Mes',
+        valor: k.mejorMes ?? '—',
+        icono: Star,
+        color: 'text-yellow-400',
+        bg:    'bg-yellow-500/10',
+      },
+      {
+        label: 'Crecimiento vs Año Anterior',
+        valor: k.crecimiento != null ? `${k.crecimiento > 0 ? '+' : ''}${k.crecimiento}%` : '—',
+        icono: k.crecimiento >= 0 ? TrendingUp : TrendingDown,
+        color: k.crecimiento >= 0 ? 'text-emerald-400' : 'text-red-400',
+        bg:    k.crecimiento >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10',
+      },
+    );
+  }
+
+  return base;
+}
+
+export function ResumenKpis({ vista, kpis, loading }: ResumenKpisProps) {
+  const items = buildKpis(vista, kpis);
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

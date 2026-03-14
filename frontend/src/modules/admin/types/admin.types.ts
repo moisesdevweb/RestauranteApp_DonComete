@@ -128,70 +128,127 @@ export interface Orden {
   actualizadoEn: string;
 }
 
-// ─── REPORTES — respuestas reales del backend ─────────────────────────────────
+// ─── REPORTES ─────────────────────────────────────────────────────────────────
 
-export interface KpisReporte {
-  totalVentas: number;
-  totalMesas: number;
+export interface KpisDiario {
+  totalVentas:    number;
+  totalMesas:     number;
   ordenesPagadas: number;
   ticketPromedio: number;
+  horaPico:       string;
 }
 
-export interface ReporteDiario {
-  fecha: string;
-  kpis: KpisReporte;
-  ventasPorHora: Record<number, number>;
-  metodosPago: Record<string, number>;
-  pedidos: PedidoResumen[];
+export interface KpisSemanal {
+  totalVentas:    number;
+  totalMesas:     number;
+  ordenesPagadas: number;
+  ticketPromedio: number;
+  mejorDia:       string;
+  peorDia:        string;
+}
+
+export interface KpisMensual {
+  totalVentas:    number;
+  totalMesas:     number;
+  ordenesPagadas: number;
+  ticketPromedio: number;
+  mejorSemana:    string;
+}
+
+export interface KpisAnual {
+  totalVentas:    number;
+  totalMesas:     number;
+  ordenesPagadas: number;
+  ticketPromedio: number;
+  mejorMes:       string;
+  crecimiento:    number;
 }
 
 export interface PedidoResumen {
-  id: number;
-  mesa: number;
-  mesero: string;
-  total: number;
+  id:        number;
+  mesa:      number;
+  mesero:    string;
+  total:     number;
   cerradoEn: string;
-  metodos: { metodo: string; monto: number }[];
+  metodos:   { metodo: string; monto: number }[];
 }
 
+export interface ComparativaSemana {
+  semana:   string;
+  actual:   number;
+  anterior: number;
+}
+
+export interface VentaAño {
+  año:   number;
+  total: number;
+}
+
+export interface MeseroStats {
+  nombre:         string;
+  ordenes:        number;
+  total:          number;
+  ticketPromedio: number;
+}
+
+//ReporteDiario
+export interface ReporteDiario {
+  fecha:             string;
+  kpis:              KpisDiario;
+  ventasPorHora:     Record<number, number>;
+  metodosPago:       Record<string, number>;
+  ventasPorMesero:   Record<string, MeseroStats>;
+  pedidos:           PedidoResumen[];
+}
+
+
+//ReporteSemanal
 export interface ReporteSemanal {
-  desde: string;
-  hasta: string;
-  kpis: KpisReporte;
-  ventasPorDia: Record<string, number>;
-  mesasPorDia: Record<string, number>;
-  metodosPago: Record<string, number>;
+  desde:              string;
+  hasta:              string;
+  kpis:               KpisSemanal;
+  ventasPorDia:       Record<string, number>;
+  mesasPorDia:        Record<string, number>;
+  comparativaSemanas: ComparativaSemana[];
+  metodosPago:        Record<string, number>;
 }
 
+//ReporteMensual
 export interface ReporteMensual {
-  año: number;
-  mes: number;
-  desde: string;
-  hasta: string;
-  kpis: KpisReporte;
-  ventasPorDia: Record<number, number>;
-  mesasPorDia: Record<number, number>;
-  metodosPago: Record<string, number>;
+  año:             number;
+  mes:             number;
+  desde:           string;
+  hasta:           string;
+  kpis:            KpisMensual;
+  ventasPorDia:    Record<number, number>;
+  mesasPorDia:     Record<number, number>;
+  ventasPorSemana: Record<string, number>;
+  tendenciaMeses:  Record<string, number>;
+  metodosPago:     Record<string, number>;
 }
 
+// ReporteAnual
 export interface ReporteAnual {
-  año: number;
-  kpis: KpisReporte & { mejorMes: string };
+  año:          number;
+  kpis:         KpisAnual;
   ventasPorMes: Record<string, number>;
-  mesasPorMes: Record<string, number>;
-  metodosPago: Record<string, number>;
+  mesasPorMes:  Record<string, number>;
+  ventasPorAño: VentaAño[];
+  metodosPago:  Record<string, number>;
 }
 
 export interface Comparativa {
-  hoyVsAyer:        { actual: number; anterior: number; variacion: number };
-  semanaVsSemana:   { actual: number; anterior: number; variacion: number };
-  mesVsMes:         { actual: number; anterior: number; variacion: number };
+  hoyVsAyer:      { actual: number; anterior: number; variacion: number };
+  semanaVsSemana: { actual: number; anterior: number; variacion: number };
+  mesVsMes:       { actual: number; anterior: number; variacion: number };
 }
 
-// ProductoTop — ya lo teníamos, solo ajustar campo "total" → viene como "total" del backend
 export interface ProductoTop {
-  id: number;
-  nombre: string;
+  id:       number;
+  nombre:   string;
   cantidad: number;
-  total: number;   // ← backend devuelve "total", no "ingresos"
+  total:    number;
 }
+
+// Tipo union para KPIs en ResumenKpis
+export type KpisReporte = KpisDiario | KpisSemanal | KpisMensual | KpisAnual;

@@ -1,38 +1,41 @@
 import api from '@/lib/axios';
-import {ProductoTop } from '@/modules/admin/types/admin.types';
+import { ProductoTop } from '@/modules/admin/types/admin.types';
 
-// GET /api/reportes/diario?fecha=2026-02-26
-export const getReporteDiario = async (fecha: string) => {
-  const { data } = await api.get(`/reportes/diario?fecha=${fecha}`);
+const param = (userId?: number) => (userId ? `&userId=${userId}` : '');
+
+export const getReporteDiario = async (fecha: string, userId?: number) => {
+  const { data } = await api.get(`/reportes/diario?fecha=${fecha}${param(userId)}`);
   return data.data;
 };
 
-// GET /api/reportes/semanal?fecha=2026-02-26
-export const getReporteSemanal = async (fecha: string) => {
-  const { data } = await api.get(`/reportes/semanal?fecha=${fecha}`);
+export const getReporteSemanal = async (fecha: string, userId?: number) => {
+  const { data } = await api.get(`/reportes/semanal?fecha=${fecha}${param(userId)}`);
   return data.data;
 };
 
-// GET /api/reportes/mensual?año=2026&mes=2
-export const getReporteMensual = async (año: number, mes: number) => {
-  const { data } = await api.get(`/reportes/mensual?año=${año}&mes=${mes}`);
+export const getReporteMensual = async (año: number, mes: number, userId?: number) => {
+  const { data } = await api.get(`/reportes/mensual?año=${año}&mes=${mes}${param(userId)}`);
   return data.data;
 };
 
-// GET /api/reportes/anual?año=2026
-export const getReporteAnual = async (año: number) => {
-  const { data } = await api.get(`/reportes/anual?año=${año}`);
+export const getReporteAnual = async (año: number, userId?: number) => {
+  const { data } = await api.get(`/reportes/anual?año=${año}${param(userId)}`);
   return data.data;
 };
 
-// GET /api/reportes/comparativa
-export const getComparativa = async () => {
-  const { data } = await api.get('/reportes/comparativa');
+export const getComparativa = async (userId?: number) => {
+  const { data } = await api.get(`/reportes/comparativa${userId ? `?userId=${userId}` : ''}`);
   return data.data;
 };
 
-// GET /api/reportes/productos-top?limite=5&desde=2026-02-01&hasta=2026-02-28
-export const getProductosTop = async (desde: string, hasta: string, limite = 5) => {
-  const { data } = await api.get(`/reportes/productos-top?desde=${desde}&hasta=${hasta}&limite=${limite}`);
+export const getProductosTop = async (desde: string, hasta: string, limite = 5, userId?: number) => {
+  const { data } = await api.get(
+    `/reportes/productos-top?desde=${desde}&hasta=${hasta}&limite=${limite}${param(userId)}`
+  );
   return data.data as ProductoTop[];
+};
+
+export const getMeseros = async () => {
+  const { data } = await api.get('/usuarios?rol=mesero&activo=true');
+  return data.data as { id: number; nombre: string }[];
 };

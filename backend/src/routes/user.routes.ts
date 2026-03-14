@@ -8,6 +8,8 @@ const router = Router();
 
 // Solo admin gestiona usuarios
 router.get('/', authMiddleware, requireRol(Rol.ADMIN), getUsers);
+// Alias para /api/usuarios
+router.get('/usuarios', authMiddleware, requireRol(Rol.ADMIN), getUsers);
 router.get('/todos', authMiddleware, requireRol(Rol.ADMIN), getAllUsers);
 router.post('/', authMiddleware, requireRol(Rol.ADMIN), crearUser);
 router.patch('/:id/reactivar', authMiddleware, requireRol(Rol.ADMIN), reactivarUser);

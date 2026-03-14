@@ -3,18 +3,36 @@ import { User } from '../models';
 import { Rol } from '../types/enums';
 import { parseId } from '../utils/parseId';
 
-// GET /api/users
-export const getUsers = async (_req: Request, res: Response): Promise<void> => {
+// GET /api/users?rol=mesero&activo=true
+export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
+    const { rol, activo } = req.query;
+
+    const where: Record<string, unknown> = {};
+
+    // Filtro activo: por defecto solo activos, salvo que manden activo=false
+    if (activo === 'false') {
+      where.activo = false;
+    } else {
+      where.activo = true;
+    }
+
+    // Filtro por rol opcional
+    if (rol && Object.values(Rol).includes(rol as Rol)) {
+      where.rol = rol;
+    }
+
     const users = await User.findAll({
-      where: { activo: true },
+      where,
       order: [['nombre', 'ASC']],
     });
-    res.json({ ok: true, data: users }); // toJSON() en User ya quita passwordHash
+
+    res.json({ ok: true, data: users });
   } catch (err) {
     res.status(500).json({ ok: false, message: 'Error al obtener usuarios' });
   }
 };
+
 
 // GET /api/users/todos — trae activos e inactivos (solo admin)
 export const getAllUsers = async (_req: Request, res: Response): Promise<void> => {

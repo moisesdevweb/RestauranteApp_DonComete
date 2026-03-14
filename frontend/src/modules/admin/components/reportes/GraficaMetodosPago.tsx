@@ -67,11 +67,11 @@ export function GraficaMetodosPago({ metodosPago, loading }: GraficaMetodosPagoP
 
       <div className="flex items-center gap-6">
         {/* Pie chart */}
-        <div className="w-40 h-40 flex-shrink-0">
-          <ResponsiveContainer width="100%" height="100%">
+        <div style={{ width: 160, height: 160 }} className="flex-shrink-0">
+          <ResponsiveContainer width={160} height={160}>
             <PieChart>
               <Pie
-                data={data}
+                data={data} 
                 cx="50%" cy="50%"
                 innerRadius={40} outerRadius={68}
                 paddingAngle={3}

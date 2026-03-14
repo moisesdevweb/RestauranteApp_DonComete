@@ -36,6 +36,8 @@ export const getProductosTop = async (desde: string, hasta: string, limite = 5, 
 };
 
 export const getMeseros = async () => {
-  const { data } = await api.get('/usuarios?rol=mesero&activo=true');
+  const { data } = await api.get('/users', {
+    params: { rol: 'mesero', activo: true }
+  });
   return data.data as { id: number; nombre: string }[];
 };

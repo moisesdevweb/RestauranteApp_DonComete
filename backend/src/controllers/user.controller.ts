@@ -4,20 +4,19 @@ import { Rol } from '../types/enums';
 import { parseId } from '../utils/parseId';
 
 // GET /api/users?rol=mesero&activo=true
+// ✅ Ya existe y funciona perfectamente
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const { rol, activo } = req.query;
 
     const where: Record<string, unknown> = {};
 
-    // Filtro activo: por defecto solo activos, salvo que manden activo=false
     if (activo === 'false') {
       where.activo = false;
     } else {
       where.activo = true;
     }
 
-    // Filtro por rol opcional
     if (rol && Object.values(Rol).includes(rol as Rol)) {
       where.rol = rol;
     }

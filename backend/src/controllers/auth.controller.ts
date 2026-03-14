@@ -10,7 +10,7 @@ export const login = async (req: Request, res: Response) => {
       return res.status(400).json({ ok: false, message: 'Usuario y contraseña requeridos' });
     }
 
-    // Buscar usuario activo
+    // Buscar usuario activo y mas cosas
     const user = await User.findOne({ where: { username, activo: true } });
     if (!user) {
       return res.status(401).json({ ok: false, message: 'Credenciales incorrectas' });

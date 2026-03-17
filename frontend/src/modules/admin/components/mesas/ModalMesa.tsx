@@ -58,7 +58,7 @@ export function ModalMesa({ mesa, guardando, onGuardar, onCerrar }: ModalMesaPro
             <label className="text-white/60 text-sm mb-1 block">Piso</label>
             <select value={piso} onChange={e => setPiso(Number(e.target.value))}
               className="w-full bg-[#2a3040] border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-orange-500/50 cursor-pointer">
-              {[1, 2, 3, 4].map(p => <option key={p} value={p}>Piso {p}</option>)}
+              {[1, 2].map(p => <option key={p} value={p}>Piso {p}</option>)}
             </select>
           </div>
           <div>

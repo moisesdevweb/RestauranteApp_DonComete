@@ -4,6 +4,11 @@ import { sileo } from 'sileo';
 import { Mesa } from '@/modules/admin/types/admin.types';
 import { getMesas, crearMesa, editarMesa, desactivarMesa, cambiarEstadoMesa, reactivarMesa } from '@/modules/admin/services/mesa.service';
 
+// Helper para extraer el mensaje de error de axios
+type AxiosError = { response?: { data?: { message?: string } } };
+const getErrMsg = (err: unknown, fallback: string) =>
+  (err as AxiosError)?.response?.data?.message ?? fallback;
+
 export function useMesas() {
   const [mesas, setMesas]               = useState<Mesa[]>([]);
   const [loading, setLoading]           = useState(true);
@@ -41,8 +46,9 @@ export function useMesas() {
       }
       setModalAbierto(false);
       setMesaEditar(null);
-    } catch {
-      sileo.error({ title: 'Error al guardar mesa' });
+    } catch (err) {
+      const msg = getErrMsg(err, mesaEditar ? 'Error al actualizar mesa' : 'Error al crear mesa');
+      sileo.error({ title: msg });
     } finally {
       setGuardando(false);
     }
@@ -66,10 +72,8 @@ export function useMesas() {
       const actualizada = await cambiarEstadoMesa(mesa.id, nuevoEstado);
       setMesas(prev => prev.map(m => m.id === mesa.id ? actualizada : m));
       sileo.success({ title: 'Estado de mesa actualizado' });
-    } catch (err: unknown) {
-      type AxiosError = { response?: { data?: { message?: string } } };
-      const msg = (err as AxiosError)?.response?.data?.message || 'No se pudo cambiar estado';
-      sileo.error({ title: msg });
+    } catch (err) {
+      sileo.error({ title: getErrMsg(err, 'No se pudo cambiar estado') });
     }
   };
 
@@ -82,10 +86,8 @@ export function useMesas() {
       const act = await reactivarMesa(id);
       setMesas(prev => prev.map(m => m.id === id ? act : m));
       sileo.success({ title: 'Mesa reactivada' });
-    } catch (err: unknown) {
-      type AxiosError = { response?: { data?: { message?: string } } };
-      const msg = (err as AxiosError)?.response?.data?.message || 'No se pudo reactivar mesa';
-      sileo.error({ title: msg });
+    } catch (err) {
+      sileo.error({ title: getErrMsg(err, 'No se pudo reactivar mesa') });
     }
   };
 

@@ -101,3 +101,21 @@ export class AuditLog extends Model {
   @BelongsTo(() => User)
   usuario!: User;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

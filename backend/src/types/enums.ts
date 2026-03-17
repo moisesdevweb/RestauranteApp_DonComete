@@ -1,7 +1,8 @@
 export enum Rol {
-  ADMIN   = 'admin',
-  MESERO  = 'mesero',
-  COCINA  = 'cocina',
+  ADMIN     = 'admin',
+  ENCARGADO = 'encargado',
+  MESERO    = 'mesero',
+  COCINA    = 'cocina',
 }
 
 export enum EstadoMesa {

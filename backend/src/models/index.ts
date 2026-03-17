@@ -9,7 +9,7 @@ export { Comensal }       from './Comensal';
 export { DetalleOrden }   from './DetalleOrden';
 export { Pago }           from './Pago';
 export { DetallePago }    from './DetallePago';
-
+export { AuditLog }       from './AuditLog';
 export const setupAssociations = () => {
   console.log('Asociaciones de modelos configuradas');
 };

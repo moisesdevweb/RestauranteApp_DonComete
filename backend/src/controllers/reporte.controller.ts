@@ -486,3 +486,151 @@ export const getProductosTop = async (req: Request, res: Response): Promise<void
     res.status(500).json({ ok: false, message: 'Error al obtener productos top' });
   }
 };
+
+// GET /api/reportes/dashboard
+export const getDashboard = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const hoy    = fmt(new Date());
+    const hace7  = new Date(); hace7.setDate(hace7.getDate() - 6);
+    const desde7 = fmt(hace7);
+
+    const ayer = new Date(); ayer.setDate(ayer.getDate() - 1);
+    const diaHoy     = new Date().getDay();
+    const lunesEsta  = new Date(); lunesEsta.setDate(new Date().getDate() - (diaHoy === 0 ? 6 : diaHoy - 1));
+    const lunesAnt   = new Date(lunesEsta); lunesAnt.setDate(lunesEsta.getDate() - 7);
+    const domAnt     = new Date(lunesAnt);  domAnt.setDate(lunesAnt.getDate() + 6);
+    const mesActual  = new Date().getMonth() + 1;
+    const añoActual  = new Date().getFullYear();
+    const mesAnt     = mesActual === 1 ? 12 : mesActual - 1;
+    const añoAnt     = mesActual === 1 ? añoActual - 1 : añoActual;
+    const ultDiaMes  = new Date(añoAnt, mesAnt, 0).getDate();
+
+    const sumar = async (desde: string, hasta: string) => {
+      const ps = await Pago.findAll({
+        include: [{ model: Orden, as: 'orden', where: whereOrden({ cerradoEn: getRango(desde, hasta) }) }],
+      });
+      return ps.reduce((s, p) => s + Number(p.total), 0);
+    };
+
+    const [pagosDia, pagos7dias, mesas, detallesTop,
+           ventasHoy, ventasAyer, ventasEstaSem, ventasAntSem, ventasEsteMes, ventasAntMes] =
+      await Promise.all([
+        Pago.findAll({
+          include: [
+            { model: Orden, as: 'orden',
+              where: whereOrden({ cerradoEn: getRango(hoy, hoy) }),
+              include: [{ model: Mesa, as: 'mesa' }, { model: User, as: 'mesero' }] },
+            { model: DetallePago, as: 'detalles' },
+          ],
+        }),
+        Pago.findAll({
+          include: [{ model: Orden, as: 'orden', where: whereOrden({ cerradoEn: getRango(desde7, hoy) }) }],
+        }),
+        Mesa.findAll({ where: { activo: true }, order: [['numero', 'ASC']] }),
+        DetalleOrden.findAll({
+          include: [
+            { model: Producto, as: 'producto' },
+            { model: Orden, as: 'orden', where: whereOrden({ cerradoEn: getRango(hoy, hoy) }) },
+          ],
+        }),
+        sumar(hoy, hoy),
+        sumar(fmt(ayer), fmt(ayer)),
+        sumar(fmt(lunesEsta), hoy),
+        sumar(fmt(lunesAnt), fmt(domAnt)),
+        sumar(`${añoActual}-${String(mesActual).padStart(2,'0')}-01`, hoy),
+        sumar(`${añoAnt}-${String(mesAnt).padStart(2,'0')}-01`,
+              `${añoAnt}-${String(mesAnt).padStart(2,'0')}-${ultDiaMes}`),
+      ]);
+
+    const totalVentas    = pagosDia.reduce((s, p) => s + Number(p.total), 0);
+    const ordenesPagadas = pagosDia.length;
+    const totalMesas     = new Set(pagosDia.map(p => p.orden.mesaId)).size;
+    const ticketPromedio = ordenesPagadas > 0 ? totalVentas / ordenesPagadas : 0;
+
+    const ventasPorHora: Record<number, number> = {};
+    pagosDia.forEach(p => {
+      const h = toLocalPeru(p.orden.cerradoEn!.toString()).getUTCHours();
+      ventasPorHora[h] = (ventasPorHora[h] || 0) + Number(p.total);
+    });
+    const horaPico = Object.entries(ventasPorHora).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+    const diasN = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    const ventasUltimos7 = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - (6 - i));
+      const fd = fmt(d);
+      const total = pagos7dias
+        .filter(p => fmt(toLocalPeru(p.orden.cerradoEn!.toString())) === fd)
+        .reduce((s, p) => s + Number(p.total), 0);
+      return { dia: diasN[d.getDay()], fecha: fd, total: Number(total.toFixed(2)) };
+    });
+
+    const productosMap: Record<number, { nombre: string; cantidad: number; total: number }> = {};
+    detallesTop.forEach(d => {
+      if (!d.producto) return;
+      const pid = d.productoId!;
+      if (!productosMap[pid]) productosMap[pid] = { nombre: d.producto.nombre, cantidad: 0, total: 0 };
+      productosMap[pid].cantidad += d.cantidad;
+      productosMap[pid].total   += Number(d.precioUnitario) * d.cantidad;
+    });
+    const productosTop = Object.entries(productosMap)
+      .map(([id, v]) => ({ id: +id, ...v, total: Number(v.total.toFixed(2)) }))
+      .sort((a, b) => b.cantidad - a.cantidad).slice(0, 5);
+
+    const estadoMesas = {
+      libres:    mesas.filter(m => m.estado === 'libre').length,
+      ocupadas:  mesas.filter(m => m.estado === 'ocupada').length,
+      reservadas:mesas.filter(m => m.estado === 'reservada').length,
+      total:     mesas.length,
+      detalle:   mesas.map(m => ({ id: m.id, numero: m.numero, piso: m.piso, estado: m.estado, capacidad: m.capacidad })),
+    };
+
+    const meseroMap: Record<string, { nombre: string; ordenes: number; total: number; ticketPromedio: number }> = {};
+    pagosDia.forEach(p => {
+      const n = p.orden.mesero?.nombre ?? 'Sin asignar';
+      if (!meseroMap[n]) meseroMap[n] = { nombre: n, ordenes: 0, total: 0, ticketPromedio: 0 };
+      meseroMap[n].ordenes += 1;
+      meseroMap[n].total   += Number(p.total);
+    });
+    Object.values(meseroMap).forEach(m => {
+      m.total          = Number(m.total.toFixed(2));
+      m.ticketPromedio = Number((m.total / m.ordenes).toFixed(2));
+    });
+
+    const v = (a: number, b: number) => b > 0 ? Number(((a - b) / b * 100).toFixed(1)) : 0;
+
+    res.json({
+      ok: true,
+      data: {
+        fecha: hoy,
+        kpis: {
+          totalVentas:    Number(totalVentas.toFixed(2)),
+          totalMesas,
+          ordenesPagadas,
+          ticketPromedio: Number(ticketPromedio.toFixed(2)),
+          horaPico:       horaPico ? `${horaPico}:00` : '—',
+        },
+        ventasPorHora,
+        ventasUltimos7,
+        metodosPago:     calcularMetodosPago(pagosDia),
+        ultimosPedidos:  pagosDia.slice(0, 8).map(p => ({
+          id:        p.orden.id,
+          mesa:      p.orden.mesa?.numero,
+          mesero:    p.orden.mesero?.nombre,
+          total:     p.total,
+          cerradoEn: p.orden.cerradoEn,
+        })),
+        productosTop,
+        estadoMesas,
+        rendimientoMeseros: Object.values(meseroMap).sort((a, b) => b.total - a.total),
+        comparativa: {
+          hoyVsAyer:      { actual: Number(ventasHoy.toFixed(2)),      anterior: Number(ventasAyer.toFixed(2)),    variacion: v(ventasHoy, ventasAyer) },
+          semanaVsSemana: { actual: Number(ventasEstaSem.toFixed(2)),   anterior: Number(ventasAntSem.toFixed(2)), variacion: v(ventasEstaSem, ventasAntSem) },
+          mesVsMes:       { actual: Number(ventasEsteMes.toFixed(2)),   anterior: Number(ventasAntMes.toFixed(2)), variacion: v(ventasEsteMes, ventasAntMes) },
+        },
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, message: 'Error al generar dashboard' });
+  }
+};

@@ -5,9 +5,10 @@ import { X, Eye, EyeOff } from 'lucide-react';
 import { Usuario } from '@/modules/admin/types/admin.types';
 
 const ROLES = [
-  { value: 'mesero' as const,  label: 'Mesero',         color: 'bg-blue-500/20 text-blue-400' },
-  { value: 'cocina' as const,  label: 'Cocinero',        color: 'bg-orange-500/20 text-orange-400' },
-  { value: 'admin' as const,   label: 'Administrador',   color: 'bg-purple-500/20 text-purple-400' },
+  { value: 'mesero'     as const, label: 'Mesero',        color: 'bg-blue-500/20 text-blue-400'    },
+  { value: 'cocina'     as const, label: 'Cocinero',       color: 'bg-orange-500/20 text-orange-400' },
+  { value: 'encargado'  as const, label: 'Encargado',      color: 'bg-yellow-500/20 text-yellow-400' },
+  { value: 'admin'      as const, label: 'Administrador',  color: 'bg-purple-500/20 text-purple-400' },
 ];
 
 interface ModalUsuarioProps {
@@ -105,7 +106,7 @@ export function ModalUsuario({ usuario, guardando, onGuardar, onCerrar }: ModalU
           {/* Rol */}
           <div>
             <label className="text-white/60 text-sm mb-2 block">Rol</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {ROLES.map(r => (
                 <button key={r.value} type="button" onClick={() => setRol(r.value)}
                   className={`py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer border ${

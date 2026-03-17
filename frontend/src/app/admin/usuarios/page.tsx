@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { Plus, Users, UserCheck, ChefHat, UtensilsCrossed } from 'lucide-react';
+import { Plus, Users, UserCheck, ChefHat, UtensilsCrossed, ShieldCheck } from 'lucide-react';
 import { useUsuarios } from '@/modules/admin/hooks/useUsuarios';
 import { KpiCard } from '@/modules/admin/components/shared/KpiCard';
 import { ConfirmModal } from '@/modules/admin/components/shared/ConfirmModal';
@@ -36,11 +36,12 @@ export default function UsuariosPage() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="Total Usuarios" valor={conteo.total}   icono={Users}          color="blue"    />
-        <KpiCard label="Meseros"        valor={conteo.meseros} icono={UtensilsCrossed} color="purple"  />
-        <KpiCard label="Cocineros"      valor={conteo.cocina}  icono={ChefHat}         color="orange"  />
-        <KpiCard label="Activos"        valor={conteo.activos} icono={UserCheck}       color="emerald" />
+      <div className="grid grid-cols-5 gap-4">
+        <KpiCard label="Total Usuarios" valor={conteo.total}      icono={Users}          color="blue"    />
+        <KpiCard label="Meseros"        valor={conteo.meseros}    icono={UtensilsCrossed} color="purple"  />
+        <KpiCard label="Cocineros"      valor={conteo.cocina}     icono={ChefHat}         color="orange"  />
+        <KpiCard label="Encargados"     valor={conteo.encargados} icono={ShieldCheck}     color="yellow"  />
+        <KpiCard label="Activos"        valor={conteo.activos}    icono={UserCheck}       color="emerald" />
       </div>
 
       {/* Tabla */}

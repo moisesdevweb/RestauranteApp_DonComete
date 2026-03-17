@@ -75,7 +75,7 @@ export interface MenuDiarioPayload {
 
 
 // ─── USUARIOS ─────────────────────────────────────────────────────────────────
-export type RolUsuario = 'admin' | 'mesero' | 'cocina';
+export type RolUsuario = 'admin' | 'encargado' | 'mesero' | 'cocina';
 
 export interface Usuario {
   id: number;

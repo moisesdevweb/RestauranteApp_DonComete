@@ -3,15 +3,17 @@ import { Edit2, Trash2, RefreshCw } from 'lucide-react';
 import { Usuario } from '@/modules/admin/types/admin.types';
 
 const rolStyle: Record<string, string> = {
-  admin:  'bg-purple-500/20 text-purple-400',
-  mesero: 'bg-blue-500/20 text-blue-400',
-  cocina: 'bg-orange-500/20 text-orange-400',
+  admin:      'bg-purple-500/20 text-purple-400',
+  encargado:  'bg-yellow-500/20 text-yellow-400',
+  mesero:     'bg-blue-500/20 text-blue-400',
+  cocina:     'bg-orange-500/20 text-orange-400',
 };
 
 const rolLabel: Record<string, string> = {
-  admin:  'Admin',
-  mesero: 'Mesero',
-  cocina: 'Cocinero',
+  admin:     'Admin',
+  encargado: 'Encargado',
+  mesero:    'Mesero',
+  cocina:    'Cocinero',
 };
 
 interface TablaUsuariosProps {

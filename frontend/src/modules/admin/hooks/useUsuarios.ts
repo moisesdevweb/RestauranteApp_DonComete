@@ -4,6 +4,11 @@ import { sileo } from 'sileo';
 import { Usuario } from '@/modules/admin/types/admin.types';
 import { UsuarioPayload, getUsuarios, crearUsuario, editarUsuario, desactivarUsuario, reactivarUsuario } from '@/modules/admin/services/usuario.service';
 
+// Helper para extraer mensaje real del backend
+type AxiosError = { response?: { data?: { message?: string } } };
+const getErrMsg = (err: unknown, fallback: string) =>
+  (err as AxiosError)?.response?.data?.message ?? fallback;
+
 export function useUsuarios() {
   const [usuarios, setUsuarios]             = useState<Usuario[]>([]);
   const [loading, setLoading]               = useState(true);
@@ -38,8 +43,9 @@ export function useUsuarios() {
       }
       setModalAbierto(false);
       setUsuarioEditar(null);
-    } catch {
-      sileo.error({ title: 'Error al guardar usuario' });
+    } catch (err) {
+      const msg = getErrMsg(err, usuarioEditar ? 'Error al actualizar usuario' : 'Error al crear usuario');
+      sileo.error({ title: msg });
     } finally {
       setGuardando(false);
     }
@@ -49,8 +55,8 @@ export function useUsuarios() {
     const actualizado = await reactivarUsuario(id);
     setUsuarios(prev => prev.map(u => u.id === id ? actualizado : u));
     sileo.success({ title: 'Usuario reactivado ' });
-  } catch {
-    sileo.error({ title: 'Error al reactivar usuario' });
+  } catch (err) {
+    sileo.error({ title: getErrMsg(err, 'Error al reactivar usuario') });
   }
 };
   const handleEliminar = async (id: number) => {
@@ -58,8 +64,8 @@ export function useUsuarios() {
       await desactivarUsuario(id);
       setUsuarios(prev => prev.filter(u => u.id !== id));
       sileo.success({ title: 'Usuario desactivado' });
-    } catch {
-      sileo.error({ title: 'Error al desactivar usuario' });
+    } catch (err) {
+      sileo.error({ title: getErrMsg(err, 'Error al desactivar usuario') });
     }
   };
 
@@ -68,10 +74,11 @@ export function useUsuarios() {
   const cerrarModal = () => { setModalAbierto(false); setUsuarioEditar(null); };
 
   const conteo = {
-    total:   usuarios.length,
-    meseros: usuarios.filter(u => u.rol === 'mesero').length,
-    cocina:  usuarios.filter(u => u.rol === 'cocina').length,
-    activos: usuarios.filter(u => u.activo).length,
+    total:      usuarios.length,
+    meseros:    usuarios.filter(u => u.rol === 'mesero').length,
+    cocina:     usuarios.filter(u => u.rol === 'cocina').length,
+    encargados: usuarios.filter(u => u.rol === 'encargado').length,
+    activos:    usuarios.filter(u => u.activo).length,
   };
 
   return {

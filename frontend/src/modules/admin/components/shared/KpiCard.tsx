@@ -4,15 +4,16 @@ interface KpiCardProps {
   label: string;
   valor: string | number;
   icono: LucideIcon;
-  color: 'blue' | 'emerald' | 'orange' | 'purple' | 'red';
+  color: 'blue' | 'emerald' | 'orange' | 'purple' | 'red' | 'yellow';
 }
 
 const colores = {
-  blue:    { text: 'text-blue-400',    bg: 'bg-blue-500/10' },
+  blue:    { text: 'text-blue-400',    bg: 'bg-blue-500/10'    },
   emerald: { text: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-  orange:  { text: 'text-orange-400',  bg: 'bg-orange-500/10' },
-  purple:  { text: 'text-purple-400',  bg: 'bg-purple-500/10' },
-  red:     { text: 'text-red-400',     bg: 'bg-red-500/10' },
+  orange:  { text: 'text-orange-400',  bg: 'bg-orange-500/10'  },
+  purple:  { text: 'text-purple-400',  bg: 'bg-purple-500/10'  },
+  red:     { text: 'text-red-400',     bg: 'bg-red-500/10'     },
+  yellow:  { text: 'text-yellow-400',  bg: 'bg-yellow-500/10'  },
 };
 
 export function KpiCard({ label, valor, icono: Icono, color }: KpiCardProps) {

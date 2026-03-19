@@ -21,10 +21,20 @@ export enum AuditAccion {
   USUARIO_EDITADO  = 'USUARIO_EDITADO',
   USUARIO_ELIMINADO = 'USUARIO_ELIMINADO',
 
+  // Categorías
+  CATEGORIA_CREADA   = 'CATEGORIA_CREADA',
+  CATEGORIA_EDITADA  = 'CATEGORIA_EDITADA',
+  CATEGORIA_ELIMINADA = 'CATEGORIA_ELIMINADA',
+
   // Productos
   PRODUCTO_CREADO   = 'PRODUCTO_CREADO',
   PRODUCTO_EDITADO  = 'PRODUCTO_EDITADO',
   PRODUCTO_ELIMINADO = 'PRODUCTO_ELIMINADO',
+
+  // Menú diario
+  MENU_CREADO      = 'MENU_CREADO',
+  MENU_EDITADO     = 'MENU_EDITADO',
+  MENU_DESACTIVADO = 'MENU_DESACTIVADO',
 
   // Órdenes
   ORDEN_CREADA    = 'ORDEN_CREADA',
@@ -101,21 +111,3 @@ export class AuditLog extends Model {
   @BelongsTo(() => User)
   usuario!: User;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

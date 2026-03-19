@@ -1,5 +1,5 @@
 'use client';
-import { Edit2, Trash2, GripVertical } from 'lucide-react';
+import { Edit2, Trash2, GripVertical, ChefHat, Zap } from 'lucide-react';
 import { Categoria } from '@/modules/admin/types/admin.types';
 
 interface ListaCategoriasProps {

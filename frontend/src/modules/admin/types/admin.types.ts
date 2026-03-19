@@ -27,6 +27,9 @@ export interface Categoria {
   nombre: string;
   descripcion?: string;
   icono?: string;
+  orden: number;
+  /** Si false, los productos de esta categoría se sirven directo sin pasar por cocina */
+  requiereCocina: boolean;
   activo: boolean;
   createdAt: string;
 }
@@ -40,6 +43,8 @@ export interface Producto {
   imagenUrl?: string;
   disponible: boolean;
   agotado: boolean;
+  /** Si false, el mesero sirve este producto directo sin notificar a cocina */
+  requiereCocina: boolean;
   categoriaId: number;
   categoria?: Pick<Categoria, 'id' | 'nombre' | 'icono'>;
   createdAt: string;

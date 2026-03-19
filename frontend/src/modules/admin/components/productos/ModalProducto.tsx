@@ -1,7 +1,8 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { X, Upload, Link as LinkIcon, ImageOff } from 'lucide-react';
+import { X, Upload, Link as LinkIcon, ImageOff, ChefHat, Zap } from 'lucide-react';
 import { Producto, Categoria } from '@/modules/admin/types/admin.types';
 
 interface ModalProductoProps {
@@ -20,7 +21,9 @@ export function ModalProducto({ producto, categorias, guardando, onGuardar, onCe
   const [imagenUrl,   setImagenUrl]   = useState(() => producto?.imagenUrl        ?? '');
   const [archivo,     setArchivo]     = useState<File | null>(null);
   const [preview,     setPreview]     = useState<string | null>(() => producto?.imagenUrl ?? null);
-  const [modoImagen,  setModoImagen]  = useState<'url' | 'archivo'>('url');
+  const [modoImagen,    setModoImagen]    = useState<'url' | 'archivo'>('url');
+  // Se inicializa con el valor del producto; si es nuevo, true por defecto (seguro)
+  const [requiereCocina, setRequiereCocina] = useState(() => producto?.requiereCocina ?? true);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleArchivo = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -37,6 +40,7 @@ export function ModalProducto({ producto, categorias, guardando, onGuardar, onCe
     form.append('descripcion', descripcion);
     form.append('precio',      precio);
     form.append('categoriaId', categoriaId);
+    form.append('requiereCocina', String(requiereCocina));
     if (archivo)         form.append('imagen',    archivo);
     else if (imagenUrl)  form.append('imagenUrl', imagenUrl);
     onGuardar(form);
@@ -100,6 +104,36 @@ export function ModalProducto({ producto, categorias, guardando, onGuardar, onCe
                 placeholder="0.00"
                 className="w-full bg-[#2a3040] border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-orange-500/50 placeholder-white/20" />
             </div>
+          </div>
+
+          {/* ── ¿Requiere cocina? ───────────────────────────────────────── */}
+          <div>
+            <label className="text-white/60 text-sm mb-2 block">¿Dónde se prepara?</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button"
+                onClick={() => setRequiereCocina(true)}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer border ${
+                  requiereCocina
+                    ? 'bg-orange-500/20 text-orange-400 border-orange-500/40'
+                    : 'bg-[#2a3040] text-white/40 border-transparent hover:text-white/70'
+                }`}>
+                <ChefHat size={15} /> Va a cocina
+              </button>
+              <button type="button"
+                onClick={() => setRequiereCocina(false)}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer border ${
+                  !requiereCocina
+                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                    : 'bg-[#2a3040] text-white/40 border-transparent hover:text-white/70'
+                }`}>
+                <Zap size={15} /> Servicio directo
+              </button>
+            </div>
+            <p className="text-white/25 text-xs mt-1.5">
+              {requiereCocina
+                ? 'Se notifica a cocina al enviar el pedido (ej: lomo saltado, café)'
+                : 'El mesero lo sirve directo sin notificar a cocina (ej: gaseosa, agua)'}
+            </p>
           </div>
 
           {/* Imagen — tabs URL / Archivo */}

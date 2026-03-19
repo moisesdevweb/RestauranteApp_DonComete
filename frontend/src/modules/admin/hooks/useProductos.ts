@@ -5,6 +5,10 @@ import { Producto, Categoria } from '@/modules/admin/types/admin.types';
 import { getProductos, crearProducto, editarProducto, eliminarProducto, toggleAgotado } from '@/modules/admin/services/producto.service';
 import { getCategorias } from '@/modules/admin/services/categoria.service';
 
+type AxiosError = { response?: { data?: { message?: string } } };
+const getErrMsg = (err: unknown, fallback: string) =>
+  (err as AxiosError)?.response?.data?.message ?? fallback;
+
 export function useProductos() {
   const [productos, setProductos]           = useState<Producto[]>([]);
   const [categorias, setCategorias]         = useState<Categoria[]>([]);
@@ -34,16 +38,16 @@ export function useProductos() {
       if (productoEditar) {
         const actualizado = await editarProducto(productoEditar.id, form);
         setProductos(prev => prev.map(p => p.id === productoEditar.id ? actualizado : p));
-        sileo.success({ title: 'Producto actualizado ✅' });
+        sileo.success({ title: 'Producto actualizado' });
       } else {
         const nuevo = await crearProducto(form);
         setProductos(prev => [...prev, nuevo]);
-        sileo.success({ title: 'Producto creado ✅' });
+        sileo.success({ title: 'Producto creado' });
       }
       setModalAbierto(false);
       setProductoEditar(null);
-    } catch {
-      sileo.error({ title: 'Error al guardar producto' });
+    } catch (err) {
+      sileo.error({ title: getErrMsg(err, productoEditar ? 'Error al actualizar producto' : 'Error al crear producto') });
     } finally {
       setGuardando(false);
     }
@@ -54,8 +58,8 @@ export function useProductos() {
       await eliminarProducto(id);
       setProductos(prev => prev.filter(p => p.id !== id));
       sileo.success({ title: 'Producto eliminado' });
-    } catch {
-      sileo.error({ title: 'Error al eliminar producto' });
+    } catch (err) {
+      sileo.error({ title: getErrMsg(err, 'Error al eliminar producto') });
     }
   };
 
@@ -63,8 +67,8 @@ export function useProductos() {
     try {
       const actualizado = await toggleAgotado(id);
       setProductos(prev => prev.map(p => p.id === id ? actualizado : p));
-    } catch {
-      sileo.error({ title: 'Error al actualizar estado' });
+    } catch (err) {
+      sileo.error({ title: getErrMsg(err, 'Error al actualizar estado') });
     }
   };
 

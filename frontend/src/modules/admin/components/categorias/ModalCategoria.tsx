@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X, ChefHat, Zap } from 'lucide-react';
 import { Categoria } from '@/modules/admin/types/admin.types';
 
 const ICONOS = ['🍽️', '🍕', '🍔', '🥗', '🍜', '🍣', '🥩', '🍗', '🥘', '🍲', '🥤', '🍺', '☕', '🧃', '🍰', '🍨'];
@@ -9,18 +9,19 @@ const ICONOS = ['🍽️', '🍕', '🍔', '🥗', '🍜', '🍣', '🥩', '🍗
 interface ModalCategoriaProps {
   categoria: Categoria | null;
   guardando: boolean;
-  onGuardar: (data: { nombre: string; descripcion?: string; icono?: string }) => void;
+  onGuardar: (data: { nombre: string; descripcion?: string; icono?: string; requiereCocina: boolean }) => void;
   onCerrar: () => void;
 }
 
 export function ModalCategoria({ categoria, guardando, onGuardar, onCerrar }: ModalCategoriaProps) {
   const [nombre,      setNombre]      = useState(() => categoria?.nombre      ?? '');
   const [descripcion, setDescripcion] = useState(() => categoria?.descripcion ?? '');
-  const [icono,       setIcono]       = useState(() => categoria?.icono       ?? '🍽️');
+  const [icono,         setIcono]         = useState(() => categoria?.icono           ?? '🍽️');
+  const [requiereCocina, setRequiereCocina] = useState(() => categoria?.requiereCocina ?? true);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onGuardar({ nombre, descripcion, icono });
+    onGuardar({ nombre, descripcion, icono, requiereCocina });
   };
 
   return (
@@ -86,6 +87,36 @@ export function ModalCategoria({ categoria, guardando, onGuardar, onCerrar }: Mo
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* ── ¿Requiere cocina? ───────────────────────────────────────── */}
+          <div>
+            <label className="text-white/60 text-sm mb-2 block">¿Dónde se prepara?</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button"
+                onClick={() => setRequiereCocina(true)}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer border ${
+                  requiereCocina
+                    ? 'bg-orange-500/20 text-orange-400 border-orange-500/40'
+                    : 'bg-[#2a3040] text-white/40 border-transparent hover:text-white/70'
+                }`}>
+                <ChefHat size={15} /> Va a cocina
+              </button>
+              <button type="button"
+                onClick={() => setRequiereCocina(false)}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer border ${
+                  !requiereCocina
+                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                    : 'bg-[#2a3040] text-white/40 border-transparent hover:text-white/70'
+                }`}>
+                <Zap size={15} /> Servicio directo
+              </button>
+            </div>
+            <p className="text-white/25 text-xs mt-1.5">
+              {requiereCocina
+                ? 'Los productos de esta categoría se envían a cocina (ej: platos, café)'
+                : 'El mesero los sirve directamente sin pasar por cocina (ej: gaseosas, agua)'}
+            </p>
           </div>
 
           <div className="flex gap-3 pt-2">

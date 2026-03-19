@@ -1,5 +1,6 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
-import { Edit2, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Edit2, Trash2, ToggleLeft, ToggleRight, ChefHat, Zap } from 'lucide-react';
 import { Producto } from '@/modules/admin/types/admin.types';
 
 interface GridProductosProps {
@@ -55,9 +56,20 @@ export function GridProductos({ productos, loading, onEditar, onEliminar, onTogg
           {/* Info */}
           <div className="p-3">
             <div className="text-white font-medium text-sm truncate">{p.nombre}</div>
-            {p.categoria && (
-              <div className="text-white/30 text-xs mt-0.5 truncate">{p.categoria.nombre}</div>
-            )}
+            <div className="flex items-center justify-between mt-0.5">
+              {p.categoria && (
+                <div className="text-white/30 text-xs truncate">{p.categoria.nombre}</div>
+              )}
+              {p.requiereCocina ? (
+                <span title="Va a cocina" className="text-orange-400/60 flex-shrink-0">
+                  <ChefHat size={12} />
+                </span>
+              ) : (
+                <span title="Servicio directo" className="text-emerald-400/60 flex-shrink-0">
+                  <Zap size={12} />
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Acciones */}

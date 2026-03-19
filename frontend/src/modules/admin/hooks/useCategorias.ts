@@ -4,6 +4,10 @@ import { sileo } from 'sileo';
 import { Categoria } from '@/modules/admin/types/admin.types';
 import { CategoriaPayload, getCategorias, crearCategoria, editarCategoria, eliminarCategoria } from '@/modules/admin/services/categoria.service';
 
+type AxiosError = { response?: { data?: { message?: string } } };
+const getErrMsg = (err: unknown, fallback: string) =>
+  (err as AxiosError)?.response?.data?.message ?? fallback;
+
 export function useCategorias() {
   const [categorias, setCategorias]         = useState<Categoria[]>([]);
   const [loading, setLoading]               = useState(true);
@@ -30,16 +34,16 @@ export function useCategorias() {
       if (categoriaEditar) {
         const actualizada = await editarCategoria(categoriaEditar.id, data);
         setCategorias(prev => prev.map(c => c.id === categoriaEditar.id ? actualizada : c));
-        sileo.success({ title: 'Categoría actualizada ✅' });
+        sileo.success({ title: 'Categoría actualizada' });
       } else {
         const nueva = await crearCategoria(data);
         setCategorias(prev => [...prev, nueva]);
-        sileo.success({ title: 'Categoría creada ✅' });
+        sileo.success({ title: 'Categoría creada' });
       }
       setModalAbierto(false);
       setCategoriaEditar(null);
-    } catch {
-      sileo.error({ title: 'Error al guardar categoría' });
+    } catch (err) {
+      sileo.error({ title: getErrMsg(err, categoriaEditar ? 'Error al actualizar categoría' : 'Error al crear categoría') });
     } finally {
       setGuardando(false);
     }
@@ -50,8 +54,8 @@ export function useCategorias() {
       await eliminarCategoria(id);
       setCategorias(prev => prev.filter(c => c.id !== id));
       sileo.success({ title: 'Categoría eliminada' });
-    } catch {
-      sileo.error({ title: 'Error al eliminar categoría' });
+    } catch (err) {
+      sileo.error({ title: getErrMsg(err, 'Error al eliminar categoría') });
     }
   };
 

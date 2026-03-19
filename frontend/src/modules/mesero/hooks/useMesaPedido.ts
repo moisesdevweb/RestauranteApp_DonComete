@@ -63,7 +63,7 @@ export function useMesaPedido(mesaId: number) {
   // ── Carga inicial ──────────────────────────────────────
   useEffect(() => {
     const cargar = async () => {
-      limpiar(); // limpiar carrito antes del await para evitar race condition con ordenId
+      limpiar(); // limpiar carrito antes del await para evitar race
       const [todasMesas, prods, cats, menu] = await Promise.all([
         getMesas(), getProductos(), getCategorias(), getMenuHoy(),
       ]);

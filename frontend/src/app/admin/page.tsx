@@ -9,7 +9,8 @@ import { EstadoMesas }         from '@/modules/admin/components/dashboard/Estado
 import { ProductosTopDia }     from '@/modules/admin/components/dashboard/ProductosTopDia';
 import { TablaUltimosPedidos } from '@/modules/admin/components/dashboard/TablaUltimosPedidos';
 import { RendimientoMeseros }  from '@/modules/admin/components/dashboard/RendimientoMeseros';
-import { StockBajoWidget } from '@/modules/admin/components/dashboard/StockBajoWidget';
+import { StockBajoWidget }   from '@/modules/admin/components/dashboard/StockBajoWidget';
+import { ModalStockBajo }   from '@/modules/admin/components/dashboard/ModalStockBajo';
 
 export default function DashboardPage() {
   const { datos, loading, lastUpdate, refetch } = useDashboard();
@@ -18,6 +19,9 @@ export default function DashboardPage() {
   const comp = datos?.comparativa;
 
   return (
+    <>
+    {/* Modal de alerta de stock bajo — aparece automáticamente al cargar */}
+    <ModalStockBajo />
     <div className="p-6 space-y-6 min-h-screen bg-[#0f1520]">
 
       {/* Header */}
@@ -85,5 +89,6 @@ export default function DashboardPage() {
       <TablaUltimosPedidos pedidos={datos?.ultimosPedidos ?? []} loading={loading} />
 
     </div>
+    </>
   );
 }

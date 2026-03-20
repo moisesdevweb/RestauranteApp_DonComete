@@ -46,6 +46,21 @@ export function useCocina() {
         description: `${orden.comensales?.flatMap(c => c.detalles).length || 0} items`,
       });
     },
+
+    // ── MAGIA SENIOR: Event-Driven Refetching ──
+    'orden:item_cancelado': () => {
+      // 1. Recargamos la data fresca desde la BD
+      cargarOrdenes();
+      
+      // 2. Cerramos el modal por si el cocinero lo tenía abierto
+      setOrdenSeleccionada(null);
+      
+      // 3. Avisamos visualmente
+      sileo.action({
+        title: '🔄 Pedido actualizado',
+        description: 'Administración canceló un item de una mesa',
+      });
+    }
   });
 
   const handleMarcarListo = async () => {

@@ -48,37 +48,85 @@ export function CarritoPanel({
       {/* Lista de items */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
-        {/* Historial — items ya enviados a cocina */}
-        {ordenCreada && itemsYaEnviados.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Clock size={13} className="text-white/30" />
-              <span className="text-white/30 text-xs uppercase tracking-wider">Ya en cocina</span>
-            </div>
-            <div className="space-y-2">
-              {itemsYaEnviados.map(item => (
-                <div key={item.id} className="bg-[#1e2530] border border-white/5 rounded-xl p-3 opacity-60">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <div className="text-white/70 text-sm">{item.nombreProducto}</div>
-                      <div className="text-white/30 text-xs">Comensal {item.numeroComensal}</div>
-                      {item.nota && (
-                        <div className="text-orange-400/50 text-xs mt-0.5">📝 {item.nota}</div>
-                      )}
+        {/* Historial — items ya enviados a cocina, agrupados por producto+comensal+nota */}
+        {ordenCreada && itemsYaEnviados.length > 0 && (() => {
+          // Agrupar filas del mismo producto para el mismo comensal con la misma nota
+          // Un Americano x3 muestra "3x Americano" en lugar de 3 filas separadas
+          type ItemAgrupado = {
+            key: string;
+            nombre: string;
+            comensal: number;
+            nota: string | null;
+            cantidad: number;
+            estado: 'pendiente' | 'listo';
+            precioUnitario: number;
+          };
+          const agrupados = itemsYaEnviados.reduce<ItemAgrupado[]>((acc, item) => {
+            const key = `${item.nombreProducto}|${item.numeroComensal}|${item.nota ?? ''}`;
+            const existe = acc.find(a => a.key === key);
+            if (existe) {
+              existe.cantidad += item.cantidad;
+              // Si cualquiera está pendiente, el grupo está pendiente
+              if (item.estado === 'pendiente') existe.estado = 'pendiente';
+            } else {
+              acc.push({
+                key,
+                nombre:          item.nombreProducto,
+                comensal:        item.numeroComensal,
+                nota:            item.nota ?? null,
+                cantidad:        item.cantidad,
+                estado:          item.estado,
+                precioUnitario:  Number(item.precioUnitario),
+              });
+            }
+            return acc;
+          }, []);
+
+          return (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Clock size={13} className="text-white/30" />
+                <span className="text-white/30 text-xs uppercase tracking-wider">Ya en cocina</span>
+              </div>
+              <div className="space-y-2">
+                {agrupados.map(item => (
+                  <div key={item.key} className="bg-[#1e2530] border border-white/5 rounded-xl p-3 opacity-70">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-1.5">
+                          {item.cantidad > 1 && (
+                            <span className="text-orange-400 text-xs font-bold bg-orange-500/15 px-1.5 py-0.5 rounded-md">
+                              {item.cantidad}x
+                            </span>
+                          )}
+                          <span className="text-white/70 text-sm">{item.nombre}</span>
+                        </div>
+                        <div className="text-white/30 text-xs mt-0.5">Comensal {item.comensal}</div>
+                        {item.nota && item.nota.includes('|') ? (
+                          <div className="text-orange-400/50 text-xs mt-0.5">📝 {item.nota.split('|')[1]?.trim()}</div>
+                        ) : item.nota ? (
+                          <div className="text-orange-400/50 text-xs mt-0.5">📝 {item.nota}</div>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
+                          item.estado === 'listo'
+                            ? 'bg-emerald-500/20 text-emerald-400'
+                            : 'bg-yellow-500/20 text-yellow-400'
+                        }`}>
+                          {item.estado === 'listo' ? '✓ Listo' : '⏳ En cocina'}
+                        </span>
+                        <span className="text-white/20 text-xs">
+                          S/. {(item.precioUnitario * item.cantidad).toFixed(2)}
+                        </span>
+                      </div>
                     </div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
-                      item.estado === 'listo'
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'bg-yellow-500/20 text-yellow-400'
-                    }`}>
-                      {item.estado === 'listo' ? '✓ Listo' : '⏳ En cocina'}
-                    </span>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Separador nuevos / ya enviados */}
         {ordenCreada && itemsYaEnviados.length > 0 && items.length > 0 && (

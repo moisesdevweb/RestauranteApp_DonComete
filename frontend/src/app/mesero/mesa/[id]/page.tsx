@@ -2,7 +2,7 @@
 import { useState } from 'react';                          
 import { useParams } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Package } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useMesaPedido } from '@/modules/mesero/hooks/useMesaPedido';
 import { ModalProducto } from '@/modules/mesero/components/ModalProducto';
@@ -18,6 +18,9 @@ export default function MesaPage() {
   const mesaId = parseInt(params.id as string);
 
   const [modalCobro, setModalCobro] = useState(false);   
+
+  // Actualizar stock de productos en tiempo real cuando llega alerta del socket
+  // (ya existe el toast en useMesaPedido, aquí solo actualizamos el estado visual)
 
   const {
     mesa, ordenCreada, enviando, nombreCliente, setNombreCliente,
@@ -167,11 +170,24 @@ export default function MesaPage() {
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-4xl">🍽️</div>
                       )}
+
+                      {/* Overlay agotado */}
                       {producto.agotado && (
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                           <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">AGOTADO</span>
                         </div>
                       )}
+
+                      {/* Badge stock bajo — solo si tiene stock activo y está por debajo del mínimo */}
+                      {!producto.agotado && producto.stock !== null && producto.stock !== undefined && producto.stock <= producto.stockMinimo && (
+                        <div className="absolute top-2 left-2">
+                          <span className="bg-yellow-500 text-black text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Package size={10} /> {producto.stock} uds
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Precio */}
                       <div className="absolute bottom-2 right-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-lg">
                         S/. {Number(producto.precio).toFixed(2)}
                       </div>
@@ -180,6 +196,19 @@ export default function MesaPage() {
                       <div className="text-white font-medium text-sm">{producto.nombre}</div>
                       {producto.descripcion && (
                         <div className="text-white/40 text-xs mt-1 line-clamp-1">{producto.descripcion}</div>
+                      )}
+                      {/* Stock info sutil debajo del nombre */}
+                      {!producto.agotado && producto.stock !== null && producto.stock !== undefined && (
+                        <div className={`text-xs mt-1 flex items-center gap-1 ${
+                          producto.stock <= producto.stockMinimo
+                            ? 'text-yellow-400'
+                            : 'text-white/20'
+                        }`}>
+                          <Package size={10} />
+                          {producto.stock <= producto.stockMinimo
+                            ? `Solo quedan ${producto.stock}`
+                            : `${producto.stock} disponibles`}
+                        </div>
                       )}
                     </div>
                   </motion.button>

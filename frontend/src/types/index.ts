@@ -26,6 +26,10 @@ export interface Producto {
   categoria?: Categoria;
   disponible: boolean;
   agotado: boolean;
+  /** null = sin control de stock | número = unidades disponibles */
+  stock:       number | null;
+  /** Umbral de alerta — notifica cuando stock ≤ stockMinimo */
+  stockMinimo: number;
 }
 
 export interface User {

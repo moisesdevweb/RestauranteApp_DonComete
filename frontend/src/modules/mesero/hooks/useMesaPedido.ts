@@ -34,11 +34,19 @@ export function useMesaPedido(mesaId: number) {
   useSocket({
     // Alerta cuando un producto llega al stock mínimo o se agota
     'producto:stock_bajo': (data: unknown) => {
-      const alerta = data as { nombre: string; stock: number; agotado: boolean };
+      const alerta = data as { id: number; nombre: string; stock: number; stockMinimo: number; agotado: boolean };
+
+      // Actualizar el producto en el estado local para que el badge cambie en tiempo real
+      setProductos(prev => prev.map(p =>
+        p.id === alerta.id
+          ? { ...p, stock: alerta.stock, agotado: alerta.agotado }
+          : p
+      ));
+
       if (alerta.agotado) {
         sileo.error({
-          title: `⚠️ ${alerta.nombre} agotado`,
-          description: 'El producto ya no está disponible',
+          title: `${alerta.nombre} se agotó`,
+          description: 'El producto ya no está disponible para pedir',
         });
       } else {
         sileo.action({

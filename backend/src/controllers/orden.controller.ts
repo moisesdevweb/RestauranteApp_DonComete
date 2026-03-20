@@ -471,14 +471,17 @@ export const cancelarItem = async (req: Request, res: Response): Promise<void> =
     const estadoAnterior = detalle.get({ plain: true });
 
     // Reponer stock si el producto lo tiene activo
+    let stockRepuesto: number | null = null; // <-- Variable añadida para el socket
+    
     if (detalle.tipo === 'carta' && detalle.productoId) {
       const producto = await Producto.findByPk(detalle.productoId);
       if (producto && producto.stock !== null) {
-        const stockNuevo = producto.stock + detalle.cantidad;
+        const stockNuevo = (producto.stock as number) + detalle.cantidad;
         await producto.update({
           stock:   stockNuevo,
           agotado: false, // si tenía stock 0, ya no está agotado
         });
+        stockRepuesto = stockNuevo; // <-- Guardamos el valor
         console.log(`[Stock] Repuesto por cancelación: ${producto.nombre} → ${stockNuevo}`);
       }
     }
@@ -492,6 +495,7 @@ export const cancelarItem = async (req: Request, res: Response): Promise<void> =
       ordenId:    detalle.ordenId,
       productoId: detalle.productoId,
       agotado:    false, // el stock ya fue repuesto arriba si aplica
+      stock:      stockRepuesto, // <-- Enviamos el nuevo stock al frontend
     });
 
     await audit({

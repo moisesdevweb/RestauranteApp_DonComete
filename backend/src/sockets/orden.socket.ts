@@ -33,14 +33,15 @@ export const emitItemListo = (detalle: DetalleOrden): void => {
 /**
  * Emite a meseros que un item fue cancelado por el admin.
  * El mesero actualiza el carrito y la carta en tiempo real.
- * Payload incluye el productoId para que el mesero pueda actualizar
- * el estado visual de la card del producto si quedó agotado.
+ * Payload incluye el productoId y el stock para que el mesero pueda actualizar
+ * el estado visual de la card del producto inmediatamente.
  */
 export const emitItemCancelado = (payload: {
   itemId:     number;
   ordenId:    number;
   productoId: number | null;
   agotado:    boolean;
+  stock?:     number | null; // <-- Añadido para SPA en tiempo real
 }): void => {
   const io = getIo();
   io.to('mesero').to('admin').to('encargado').emit('orden:item_cancelado', payload);

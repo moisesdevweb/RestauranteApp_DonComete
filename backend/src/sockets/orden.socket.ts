@@ -41,11 +41,12 @@ export const emitItemCancelado = (payload: {
   ordenId:    number;
   productoId: number | null;
   agotado:    boolean;
-  stock?:     number | null; // <-- Añadido para SPA en tiempo real
+  stock?:     number | null; 
 }): void => {
   const io = getIo();
-  io.to('mesero').to('admin').to('encargado').emit('orden:item_cancelado', payload);
-  console.log(`[Socket] orden:item_cancelado → mesero (item #${payload.itemId})`);
+  //Emitimos a cocina para que actualice la orden en tiempo real, y a meseros para que actualicen su vista.
+  io.to('cocina').to('mesero').to('admin').to('encargado').emit('orden:item_cancelado', payload);
+  console.log(`[Socket] orden:item_cancelado → cocina/mesero (item #${payload.itemId})`);
 };
 
 /** Alerta de stock bajo — se emite cuando stock ≤ stockMinimo. */

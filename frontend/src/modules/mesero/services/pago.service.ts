@@ -8,9 +8,10 @@ export interface PagoMetodo {
 }
 
 export interface CobrarPayload {
-  ordenId: number;
-  descuento?: number;
-  pagos: PagoMetodo[];
+  ordenId:          number;
+  descuento?:       number;
+  codigoDescuento?: string; // código de cupón aplicado (opcional)
+  pagos:            PagoMetodo[];
 }
 
 export interface DetallePagoRes {

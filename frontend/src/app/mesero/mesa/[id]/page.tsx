@@ -230,13 +230,31 @@ export default function MesaPage() {
         )}
       </AnimatePresence>
 
-      {/* Modal cobro — nuevo */}
+      {/* Modal cobro — pasa la orden completa para la boleta detallada */}
       <AnimatePresence>
         {modalCobro && ordenId && (
           <ModalCobro
             ordenId={ordenId}
             total={totalGeneral}
             mesa={`Mesa ${mesa?.numero}`}
+            orden={{
+              mesa: { numero: mesa?.numero ?? 0 },
+              // Agrupamos itemsYaEnviados por comensal para la boleta
+              comensales: comensales.map(c => ({
+                numero: c.numero,
+                nombre: c.nombre ?? null,
+                detalles: itemsYaEnviados
+                  .filter(d => d.numeroComensal === c.numero)
+                  .map(d => ({
+                    id:             d.id,
+                    cantidad:       d.cantidad,
+                    precioUnitario: Number(d.precioUnitario),
+                    nota:           d.nota ?? null,
+                    tipo:           d.tipo,
+                    producto:       d.producto ? { nombre: d.producto.nombre } : undefined,
+                  })),
+              })),
+            }}
             onCobrado={() => {
               router.push('/mesero');
             }}

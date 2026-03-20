@@ -9,6 +9,7 @@ import { EstadoMesas }         from '@/modules/admin/components/dashboard/Estado
 import { ProductosTopDia }     from '@/modules/admin/components/dashboard/ProductosTopDia';
 import { TablaUltimosPedidos } from '@/modules/admin/components/dashboard/TablaUltimosPedidos';
 import { RendimientoMeseros }  from '@/modules/admin/components/dashboard/RendimientoMeseros';
+import { StockBajoWidget } from '@/modules/admin/components/dashboard/StockBajoWidget';
 
 export default function DashboardPage() {
   const { datos, loading, lastUpdate, refetch } = useDashboard();
@@ -54,6 +55,9 @@ export default function DashboardPage() {
 
       {/* Estado de mesas */}
       <EstadoMesas estadoMesas={datos?.estadoMesas ?? { libres:0, ocupadas:0, reservadas:0, total:0, detalle:[] }} loading={loading} />
+
+      {/* Alertas de stock bajo */}
+      <StockBajoWidget />
 
       {/* Gráficas principales */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

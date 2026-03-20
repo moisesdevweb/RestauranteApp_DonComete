@@ -9,15 +9,16 @@ import { Rol } from '../types/enums';
 
 const router = Router();
 
-// Solo admin ve reportes
-router.get('/diario', authMiddleware, requireRol(Rol.ADMIN), getReporteDiario);
-router.get('/semanal', authMiddleware, requireRol(Rol.ADMIN), getReporteSemanal);
-router.get('/mensual', authMiddleware, requireRol(Rol.ADMIN), getReporteMensual);
-router.get('/anual', authMiddleware, requireRol(Rol.ADMIN), getReporteAnual);
-router.get('/comparativa', authMiddleware, requireRol(Rol.ADMIN), getComparativa);
-router.get('/productos-top', authMiddleware, requireRol(Rol.ADMIN), getProductosTop);
+// Admin y encargado tienen acceso a todos los reportes
+// El encargado necesita ver ventas para gestionar el turno
+const gestores = [authMiddleware, requireRol(Rol.ADMIN, Rol.ENCARGADO)];
 
-// Dashboard solo para admin
-router.get('/dashboard', authMiddleware, requireRol(Rol.ADMIN), getDashboard);
+router.get('/diario',        ...gestores, getReporteDiario);
+router.get('/semanal',       ...gestores, getReporteSemanal);
+router.get('/mensual',       ...gestores, getReporteMensual);
+router.get('/anual',         ...gestores, getReporteAnual);
+router.get('/comparativa',   ...gestores, getComparativa);
+router.get('/productos-top', ...gestores, getProductosTop);
+router.get('/dashboard',     ...gestores, getDashboard);
 
 export default router;

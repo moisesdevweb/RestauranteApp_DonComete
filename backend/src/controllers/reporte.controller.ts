@@ -3,12 +3,20 @@ import { Op } from 'sequelize';
 import { Orden, Pago, DetallePago, DetalleOrden, Producto, Mesa, User } from '../models';
 import { EstadoOrden } from '../types/enums';
 
-// Peru UTC-5
+// ─── Zona horaria ─────────────────────────────────────────────────────────────
+// Perú corre en UTC-5. Todos los timestamps en BD están en UTC.
+// Restamos el offset para convertir a hora local peruana antes de agrupar.
 const OFFSET_MS = 5 * 60 * 60 * 1000;
 
+/** Convierte un timestamp UTC a fecha/hora en zona horaria de Perú (UTC-5). */
 const toLocalPeru = (isoStr: string): Date =>
   new Date(new Date(isoStr).getTime() - OFFSET_MS);
 
+/**
+ * Construye un rango de fechas en UTC para usar con Op.between en Sequelize.
+ * Recibe fechas en formato YYYY-MM-DD y devuelve el rango completo del día
+ * ajustado a la zona horaria de Perú.
+ */
 const getRango = (desde: string, hasta: string) => ({
   [Op.between]: [
     new Date(new Date(desde + 'T00:00:00.000Z').getTime() + OFFSET_MS),
@@ -16,27 +24,51 @@ const getRango = (desde: string, hasta: string) => ({
   ],
 });
 
+/** Formatea una fecha JS a string YYYY-MM-DD. */
 const fmt = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-const calcularMetodosPago = (pagos: any[]): Record<string, number> => {
+// ─── Tipos internos ───────────────────────────────────────────────────────────
+
+interface PagoConRelaciones extends Pago {
+  orden:    Orden & { mesa?: Mesa; mesero?: User };
+  detalles: DetallePago[];
+}
+
+interface DetallePagoSimple {
+  metodo: string;
+  monto:  number | string;
+}
+
+/**
+ * Acumula el monto cobrado por cada método de pago.
+ * Recorre todos los DetallePago de una lista de pagos y los agrupa por método.
+ */
+const calcularMetodosPago = (pagos: PagoConRelaciones[]): Record<string, number> => {
   const resultado: Record<string, number> = {};
   pagos.forEach(pago =>
-    pago.detalles.forEach((d: any) => {
+    pago.detalles.forEach((d: DetallePagoSimple) => {
       resultado[d.metodo] = (resultado[d.metodo] || 0) + Number(d.monto);
     })
   );
   return resultado;
 };
 
-// Construye el where de Orden con filtro de mesero opcional
+/**
+ * Construye la cláusula WHERE para filtrar órdenes pagadas en un rango de fechas.
+ * Si se pasa userId, filtra además por el mesero que tomó la orden.
+ */
 const whereOrden = (extra: object, userId?: number) => ({
   estado: EstadoOrden.PAGADA,
   ...extra,
   ...(userId ? { userId } : {}),
 });
 
-// GET /api/reportes/diario?fecha=2026-03-12&userId=2
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/reportes/diario
+// Ventas, mesas, métodos de pago, desglose por mesero y pedidos del día.
+// Query: ?fecha=YYYY-MM-DD (default: hoy)  ?userId=N (filtro por mesero)
+// ─────────────────────────────────────────────────────────────────────────────
 export const getReporteDiario = async (req: Request, res: Response): Promise<void> => {
   try {
     const fecha  = (req.query.fecha  as string) || fmt(new Date());
@@ -121,13 +153,17 @@ export const getReporteDiario = async (req: Request, res: Response): Promise<voi
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error('[Reporte] diario:', err);
     res.status(500).json({ ok: false, message: 'Error al generar reporte diario' });
   }
 };
 
 
-// GET /api/reportes/semanal?fecha=2026-03-12&userId=2
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/reportes/semanal
+// Ventas de la semana que contiene la fecha dada, con comparativa entre semanas.
+// Query: ?fecha=YYYY-MM-DD  ?userId=N
+// ─────────────────────────────────────────────────────────────────────────────
 export const getReporteSemanal = async (req: Request, res: Response): Promise<void> => {
   try {
     const fechaStr = (req.query.fecha as string) || fmt(new Date());
@@ -164,7 +200,7 @@ export const getReporteSemanal = async (req: Request, res: Response): Promise<vo
       Pago.findAll({ include: [{ model: Orden, as: 'orden', where: whereOrden({ cerradoEn: getRango(desdePrev, hastaPrev) }, userId) }] }),
     ]);
 
-    const agruparPorSemana = (ps: any[]): Record<string, number> => {
+    const agruparPorSemana = (ps: PagoConRelaciones[]): Record<string, number> => {
       const res: Record<string, number> = {};
       ps.forEach(p => {
         const d   = toLocalPeru(p.orden.cerradoEn!.toString()).getUTCDate();
@@ -221,13 +257,17 @@ export const getReporteSemanal = async (req: Request, res: Response): Promise<vo
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error('[Reporte] semanal:', err);
     res.status(500).json({ ok: false, message: 'Error al generar reporte semanal' });
   }
 };
 
 
-// GET /api/reportes/mensual?año=2026&mes=3&userId=2
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/reportes/mensual
+// Ventas del mes por día y por semana, con tendencia del año completo.
+// Query: ?año=YYYY  ?mes=M  ?userId=N
+// ─────────────────────────────────────────────────────────────────────────────
 export const getReporteMensual = async (req: Request, res: Response): Promise<void> => {
   try {
     const año    = parseInt(req.query.año    as string) || new Date().getFullYear();
@@ -299,13 +339,17 @@ export const getReporteMensual = async (req: Request, res: Response): Promise<vo
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error('[Reporte] mensual:', err);
     res.status(500).json({ ok: false, message: 'Error al generar reporte mensual' });
   }
 };
 
 
-// GET /api/reportes/anual?año=2026&userId=2
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/reportes/anual
+// Ventas del año por mes, comparativa con año anterior y últimos 3 años.
+// Query: ?año=YYYY  ?userId=N
+// ─────────────────────────────────────────────────────────────────────────────
 export const getReporteAnual = async (req: Request, res: Response): Promise<void> => {
   try {
     const año    = parseInt(req.query.año    as string) || new Date().getFullYear();
@@ -372,13 +416,17 @@ export const getReporteAnual = async (req: Request, res: Response): Promise<void
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error('[Reporte] anual:', err);
     res.status(500).json({ ok: false, message: 'Error al generar reporte anual' });
   }
 };
 
 
-// GET /api/reportes/comparativa?userId=2
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/reportes/comparativa
+// Comparativa hoy vs ayer, semana vs semana anterior, mes vs mes anterior.
+// Query: ?userId=N (opcional)
+// ─────────────────────────────────────────────────────────────────────────────
 export const getComparativa = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
@@ -441,12 +489,16 @@ export const getComparativa = async (req: Request, res: Response): Promise<void>
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error('[Reporte] comparativa:', err);
     res.status(500).json({ ok: false, message: 'Error al generar comparativa' });
   }
 };
 
-// GET /api/reportes/productos-top?limite=5&desde=2026-03-01&hasta=2026-03-12&userId=2
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/reportes/productos-top
+// Top N productos más vendidos en un rango de fechas, ordenados por cantidad.
+// Query: ?desde=YYYY-MM-DD  ?hasta=YYYY-MM-DD  ?limite=N  ?userId=N
+// ─────────────────────────────────────────────────────────────────────────────
 export const getProductosTop = async (req: Request, res: Response): Promise<void> => {
   try {
     const limite = parseInt(req.query.limite as string) || 5;
@@ -482,12 +534,17 @@ export const getProductosTop = async (req: Request, res: Response): Promise<void
 
     res.json({ ok: true, data: top });
   } catch (err) {
-    console.error(err);
+    console.error('[Reporte] productosTop:', err);
     res.status(500).json({ ok: false, message: 'Error al obtener productos top' });
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/reportes/dashboard
+// Snapshot completo del día: KPIs, ventas por hora, últimos 7 días,
+// productos top, estado de mesas, rendimiento de meseros y comparativas.
+// Sin parámetros — siempre muestra el día actual.
+// ─────────────────────────────────────────────────────────────────────────────
 export const getDashboard = async (req: Request, res: Response): Promise<void> => {
   try {
     const hoy    = fmt(new Date());
@@ -630,7 +687,7 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error('[Reporte] dashboard:', err);
     res.status(500).json({ ok: false, message: 'Error al generar dashboard' });
   }
 };

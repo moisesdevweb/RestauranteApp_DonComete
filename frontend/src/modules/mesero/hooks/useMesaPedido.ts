@@ -29,18 +29,45 @@ export function useMesaPedido(mesaId: number) {
   const [numComensales, setNumComensales] = useState(1);
   const [nombreCliente, setNombreCliente] = useState('');
   const [itemsYaEnviados, setItemsYaEnviados] = useState<DetalleConNombre[]>([]);
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [menuHoy, setMenuHoy] = useState<MenuDiario | null>(null);
+  const [categoriaActiva, setCategoriaActiva] = useState<number | null>(null);
+  const [tabActivo, setTabActivo] = useState<'carta' | 'menu'>('carta');
+
+  const [productoModal, setProductoModal] = useState<Producto | null>(null);
+  const [ordenCreada, setOrdenCreada] = useState(false);
+  const [enviando, setEnviando] = useState(false);
 
   // Socket: alertas de stock bajo y estado de items
   useSocket({
     // Admin canceló un item desde el panel — actualizar carrito y carta del mesero
     'orden:item_cancelado': (data: unknown) => {
-      const payload = data as { itemId: number; ordenId: number; productoId: number | null };
+      const payload = data as { 
+        itemId: number; 
+        ordenId: number; 
+        productoId: number | null;
+        agotado: boolean;
+        stock?: number | null; 
+      };
 
       // Quitar el item de los ya enviados si está en esta mesa
       setItemsYaEnviados(prev => prev.filter(i => i.id !== payload.itemId));
 
-      // Si el producto quedó agotado (socket stock_bajo lo manejará)
-      // Solo notificamos al mesero que se canceló
+      // Actualizar el stock del producto visualmente en la carta
+      if (payload.productoId) {
+        setProductos(prev => prev.map(p => {
+          if (p.id === payload.productoId) {
+            return {
+              ...p,
+              agotado: payload.agotado,
+              stock: payload.stock !== undefined && payload.stock !== null ? payload.stock : p.stock
+            };
+          }
+          return p;
+        }));
+      }
+
       sileo.action({
         title: '❌ Item cancelado',
         description: 'Un admin canceló un item de esta orden',
@@ -66,7 +93,7 @@ export function useMesaPedido(mesaId: number) {
       } else {
         sileo.action({
           title: `⚠️ Stock bajo: ${alerta.nombre}`,
-          description: `Solo quedan ${alerta.stock} unidades`,
+          description: `Solo quedan ${alerta.stock} units`,
         });
       }
     },
@@ -87,17 +114,6 @@ export function useMesaPedido(mesaId: number) {
       }
     },
   });
-
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [menuHoy, setMenuHoy] = useState<MenuDiario | null>(null);
-  const [categoriaActiva, setCategoriaActiva] = useState<number | null>(null);
-  const [tabActivo, setTabActivo] = useState<'carta' | 'menu'>('carta');
-
-  const [productoModal, setProductoModal] = useState<Producto | null>(null);
-  const [ordenCreada, setOrdenCreada] = useState(false);
-  const [enviando, setEnviando] = useState(false);
-
   // ── Carga inicial ──────────────────────────────────────
   useEffect(() => {
     const cargar = async () => {
@@ -183,78 +199,77 @@ export function useMesaPedido(mesaId: number) {
   };
 
   const handleEnviarCocina = async () => {
-  if (items.length === 0) {
-    sileo.error({ title: 'Agrega al menos un item' });
-    return;
-  }
-  setEnviando(true);
-  try {
-    let idOrden = ordenId;
+    if (items.length === 0) {
+      sileo.error({ title: 'Agrega al menos un item' });
+      return;
+    }
+    setEnviando(true);
+    try {
+      let idOrden = ordenId;
 
-    if (!idOrden) {
-      const nuevaOrden = await crearOrden(
-        mesaId,
-        comensales.map(c => ({ nombre: c.nombre || undefined, numero: c.numero }))
-      );
-      idOrden = nuevaOrden.orden.id;
-      const comensalesReales = nuevaOrden.comensales;
-      setOrdenId(idOrden!);
-      setOrdenCreada(true);
-      setComensales(comensalesReales); // ← actualiza comensales con IDs reales
+      if (!idOrden) {
+        const nuevaOrden = await crearOrden(
+          mesaId,
+          comensales.map(c => ({ nombre: c.nombre || undefined, numero: c.numero }))
+        );
+        idOrden = nuevaOrden.orden.id;
+        const comensalesReales = nuevaOrden.comensales;
+        setOrdenId(idOrden!);
+        setOrdenCreada(true);
+        setComensales(comensalesReales); // ← actualiza comensales con IDs reales
 
-      const itemsMapeados = items.map(item => {
-        const indexComensal = comensales.findIndex(c => c.id === item.comensalId);
-        return {
-          comensalId: comensalesReales[indexComensal]?.id || comensalesReales[0].id,
+        const itemsMapeados = items.map(item => {
+          const indexComensal = comensales.findIndex(c => c.id === item.comensalId);
+          return {
+            comensalId: comensalesReales[indexComensal]?.id || comensalesReales[0].id,
+            tipo: item.tipo,
+            productoId: item.productoId,
+            menuDiarioId: item.menuDiarioId,
+            cantidad: item.cantidad,
+            nota: item.nota,
+          };
+        });
+        await agregarItems(idOrden!, itemsMapeados);
+      } else {
+        const itemsMapeados = items.map(item => ({
+          comensalId: item.comensalId,
           tipo: item.tipo,
           productoId: item.productoId,
           menuDiarioId: item.menuDiarioId,
           cantidad: item.cantidad,
           nota: item.nota,
-        };
+        }));
+        await agregarItems(idOrden, itemsMapeados);
+      }
+
+      await enviarACocina(idOrden!);
+
+      // ← Actualiza itemsYaEnviados con los nuevos para mostrarlos en el carrito
+      const ordenActualizada = await getOrdenMesa(mesaId);
+      if (ordenActualizada) {
+        const yaEnviados = (ordenActualizada.comensales || []).flatMap((c: Comensal) =>
+          (c.detalles || []).map((d: DetalleOrden) => ({
+            ...d,
+            nombreProducto: d.producto?.nombre || 'Menú del Día',
+            numeroComensal: c.numero,
+          }))
+        );
+        setItemsYaEnviados(yaEnviados);
+      }
+
+      sileo.success({
+        title: '¡Orden enviada a cocina! 🍽️',
+        description: `Mesa ${mesa?.numero} · ${items.length} items nuevos`,
       });
-      await agregarItems(idOrden!, itemsMapeados);
-    } else {
-      const itemsMapeados = items.map(item => ({
-        comensalId: item.comensalId,
-        tipo: item.tipo,
-        productoId: item.productoId,
-        menuDiarioId: item.menuDiarioId,
-        cantidad: item.cantidad,
-        nota: item.nota,
-      }));
-      await agregarItems(idOrden, itemsMapeados);
+
+      limpiarItems(); // limpia solo items del carrito, preserva ordenId para seguir agregando
+
+    } catch {
+      sileo.error({ title: 'Error al enviar la orden' });
+    } finally {
+      setEnviando(false);
     }
-
-    await enviarACocina(idOrden!);
-
-    // ← Actualiza itemsYaEnviados con los nuevos para mostrarlos en el carrito
-    const ordenActualizada = await getOrdenMesa(mesaId);
-    if (ordenActualizada) {
-      const yaEnviados = (ordenActualizada.comensales || []).flatMap((c: Comensal) =>
-        (c.detalles || []).map((d: DetalleOrden) => ({
-          ...d,
-          nombreProducto: d.producto?.nombre || 'Menú del Día',
-          numeroComensal: c.numero,
-        }))
-      );
-      setItemsYaEnviados(yaEnviados);
-    }
-
-    sileo.success({
-      title: '¡Orden enviada a cocina! 🍽️',
-      description: `Mesa ${mesa?.numero} · ${items.length} items nuevos`,
-    });
-
-    limpiarItems(); // limpia solo items del carrito, preserva ordenId para seguir agregando
-
-  } catch {
-    sileo.error({ title: 'Error al enviar la orden' });
-  } finally {
-    setEnviando(false);
-  }
-};
-
+  };
 
   return {
     // Estado mesa
@@ -273,5 +288,4 @@ export function useMesaPedido(mesaId: number) {
     // Handlers
     handleAgregarProducto, handleAgregarMenu, handleEnviarCocina,
   };
-
 }

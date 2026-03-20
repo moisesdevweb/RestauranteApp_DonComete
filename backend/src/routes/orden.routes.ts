@@ -6,6 +6,8 @@ import {
   getOrdenescocina,
   marcarItemListo,
   getOrdenMesa,
+  getOrdenes,
+  cancelarItem,
 } from '../controllers/orden.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import { requireRol } from '../middlewares/role.middleware';
@@ -51,6 +53,20 @@ router.patch(
   authMiddleware,
   requireRol(Rol.ADMIN, Rol.COCINA),
   marcarItemListo,
+);
+
+// ─── Admin/encargado — gestión de órdenes ────────────────────────────────────
+router.get(
+  '/',
+  authMiddleware,
+  requireRol(Rol.ADMIN, Rol.ENCARGADO),
+  getOrdenes,
+);
+router.delete(
+  '/items/:itemId',
+  authMiddleware,
+  requireRol(Rol.ADMIN, Rol.ENCARGADO),
+  cancelarItem,
 );
 
 export default router;

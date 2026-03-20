@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, UtensilsCrossed, List, CalendarDays,
   BarChart2, Users, TableProperties, LogOut, ChefHat,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Tag, QrCode, ClipboardList,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 
@@ -17,6 +17,9 @@ const navItems = [
   { href: '/admin/reportes',   label: 'Reportes de Ventas',  icono: BarChart2 },
   { href: '/admin/usuarios',   label: 'Gestión de Usuarios', icono: Users },
   { href: '/admin/mesas',      label: 'Gestión de Mesas',    icono: TableProperties },
+  { href: '/admin/descuentos',  label: 'Códigos Descuento',   icono: Tag            },
+  { href: '/admin/config-qr',   label: 'QR de Pago',           icono: QrCode         },
+  { href: '/admin/audit-log',   label: 'Log de Auditoría',    icono: ClipboardList  },
 ];
 
 export function AdminSidebar() {

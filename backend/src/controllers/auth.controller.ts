@@ -2,51 +2,63 @@ import { Request, Response } from 'express';
 import { User } from '../models';
 import { generarToken } from '../services/auth.service';
 
-export const login = async (req: Request, res: Response) => {
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/auth/login
+// Autentica un usuario activo con username + password.
+// Devuelve JWT con payload { id, username, rol, nombre } y el usuario sin hash.
+// ─────────────────────────────────────────────────────────────────────────────
+export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { username, password } = req.body;
 
     if (!username || !password) {
-      return res.status(400).json({ ok: false, message: 'Usuario y contraseña requeridos' });
+      res.status(400).json({ ok: false, message: 'Usuario y contraseña requeridos' });
+      return;
     }
 
-    // Buscar usuario activo y mas cosas
+    // Solo usuarios activos pueden iniciar sesión
     const user = await User.findOne({ where: { username, activo: true } });
     if (!user) {
-      return res.status(401).json({ ok: false, message: 'Credenciales incorrectas' });
+      // Mismo mensaje para usuario no encontrado y contraseña incorrecta
+      // — no revelar si el usuario existe o no
+      res.status(401).json({ ok: false, message: 'Credenciales incorrectas' });
+      return;
     }
 
-    // Verificar contraseña
     const passwordValida = await user.verificarPassword(password);
     if (!passwordValida) {
-      return res.status(401).json({ ok: false, message: 'Credenciales incorrectas' });
+      res.status(401).json({ ok: false, message: 'Credenciales incorrectas' });
+      return;
     }
 
-    // Actualizar último acceso
+    // Registrar último acceso para el log de actividad
     await user.update({ ultimoAcceso: new Date() });
 
-    // Generar token
     const token = generarToken({
-      id: user.id,
+      id:       user.id,
       username: user.username,
-      rol: user.rol,
-      nombre: user.nombre,
+      rol:      user.rol,
+      nombre:   user.nombre,
     });
 
-    return res.json({
+    res.json({
       ok: true,
       data: {
         token,
-        user: user.toJSON(), // toJSON() ya elimina el passwordHash
+        user: user.toJSON(), // toJSON() elimina passwordHash
       },
     });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ ok: false, message: 'Error interno del servidor' });
+    console.error('[Auth] login:', err);
+    res.status(500).json({ ok: false, message: 'Error interno del servidor' });
   }
 };
 
-export const me = async (req: Request, res: Response) => {
-  // req.user lo pone el middleware de auth
-  return res.json({ ok: true, data: req.user });
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/auth/me
+// Devuelve el payload del token del usuario autenticado.
+// Útil para que el frontend verifique si la sesión sigue activa.
+// ─────────────────────────────────────────────────────────────────────────────
+export const me = (req: Request, res: Response): void => {
+  res.json({ ok: true, data: req.user });
 };

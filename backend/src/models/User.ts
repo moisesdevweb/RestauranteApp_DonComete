@@ -1,15 +1,23 @@
 import {
   Table, Column, Model, DataType,
-  HasMany, BeforeCreate, BeforeUpdate
+  HasMany, BeforeCreate, BeforeUpdate,
 } from 'sequelize-typescript';
 import bcrypt from 'bcryptjs';
 import { Rol } from '../types/enums';
 import { Orden } from './Orden';
 
+/**
+ * Modelo de usuario del sistema.
+ *
+ * Roles disponibles: admin, encargado, mesero, cocina.
+ * Los usuarios no se eliminan físicamente — se desactivan con activo = false.
+ * La contraseña nunca se expone: el hook la hashea antes de guardar
+ * y toJSON() la elimina del objeto serializado.
+ */
 @Table({
   tableName: 'users',
-  timestamps: true,           // crea createdAt y updatedAt automático
-  paranoid: false,            // no borrado suave, desactivamos con activo=false
+  timestamps: true,
+  paranoid:   false, // soft delete manual via activo = false
 })
 export class User extends Model {
 
@@ -39,28 +47,38 @@ export class User extends Model {
   ultimoAcceso!: Date | null;
 
   // ─── Relaciones ───────────────────────────────────────
+
   @HasMany(() => Orden)
   ordenes!: Orden[];
 
   // ─── Hooks ────────────────────────────────────────────
-  // Hashea la contraseña antes de crear o actualizar
+
+  /**
+   * Hashea la contraseña automáticamente antes de crear o actualizar.
+   * Solo actúa si el campo passwordHash fue modificado en esta operación.
+   */
   @BeforeCreate
   @BeforeUpdate
-  static async hashPassword(instance: User) {
+  static async hashPassword(instance: User): Promise<void> {
     if (instance.changed('passwordHash')) {
       instance.passwordHash = await bcrypt.hash(instance.passwordHash, 10);
     }
   }
 
-  // Método para verificar contraseña al hacer login
+  // ─── Métodos de instancia ─────────────────────────────
+
+  /** Compara una contraseña en texto plano con el hash almacenado. */
   async verificarPassword(password: string): Promise<boolean> {
     return bcrypt.compare(password, this.passwordHash);
   }
 
-  // Método para devolver usuario sin la contraseña
-  toJSON() {
-    const values = super.toJSON() as any;
+  /**
+   * Serializa el usuario sin exponer el hash de contraseña.
+   * Se aplica automáticamente en JSON.stringify y res.json().
+   */
+  toJSON(): Omit<User, 'passwordHash'> {
+    const values = super.toJSON() as Record<string, unknown>;
     delete values.passwordHash;
-    return values;
+    return values as Omit<User, 'passwordHash'>;
   }
 }

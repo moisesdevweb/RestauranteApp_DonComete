@@ -1,25 +1,49 @@
 import { getIo } from './index';
+import { Orden } from '../models/Orden';
+import { DetalleOrden } from '../models/DetalleOrden';
+import { Mesa } from '../models/Mesa';
 
-// Cuando mesero envía orden a cocina
-export const emitNuevaOrden = (orden: any): void => {
+// ─────────────────────────────────────────────────────────────────────────────
+// Emisores de Socket.io para eventos del flujo de órdenes.
+//
+// Salas usadas:
+//   'cocina'  — pantalla de cocina (recibe nuevos pedidos)
+//   'mesero'  — vista del mesero  (recibe items listos y estado de mesas)
+//   'admin'   — panel admin       (recibe todo para monitoreo en tiempo real)
+//   broadcast — todos los conectados (cambios de estado de mesa)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Emite una nueva orden (o actualización de orden existente) a cocina y admin.
+ * Solo incluye los items con estado PENDIENTE — los que cocina debe preparar.
+ * Se llama desde enviarACocina después de filtrar items directos (sin cocina).
+ */
+export const emitNuevaOrden = (orden: Orden | null): void => {
+  if (!orden) return;
   const io = getIo();
-  // Emite a todos en la sala 'cocina' y 'admin'
   io.to('cocina').to('admin').emit('orden:nueva', orden);
-  console.log(`Emitido orden:nueva → cocina (Mesa ${orden.mesa?.numero})`);
+  const mesa = (orden as Orden & { mesa?: Mesa }).mesa;
+  console.log(`[Socket] orden:nueva → cocina (Mesa ${mesa?.numero ?? orden.mesaId})`);
 };
 
-// Cuando cocina marca un item como listo
-export const emitItemListo = (detalle: any): void => {
+/**
+ * Emite a los meseros y admin que un item específico fue marcado como listo.
+ * El mesero usa este evento para actualizar el badge del carrito en tiempo real
+ * y habilitar el botón "Cobrar Mesa" cuando todos los items están listos.
+ */
+export const emitItemListo = (detalle: DetalleOrden): void => {
   const io = getIo();
-  // Emite a todos los meseros y admin
   io.to('mesero').to('admin').emit('orden:item_listo', detalle);
-  console.log(`Emitido orden:item_listo → mesero`);
+  console.log(`[Socket] orden:item_listo → mesero (item #${detalle.id})`);
 };
 
-// Cuando se cambia estado de mesa (libre/ocupada/cuenta_pendiente)
-export const emitEstadoMesa = (mesa: any): void => {
+/**
+ * Emite el nuevo estado de una mesa a todos los conectados.
+ * Actualiza el mapa de mesas del mesero en tiempo real sin necesidad de recargar.
+ * Se llama cuando: se crea una orden (libre→ocupada) o se cobra (ocupada→libre).
+ */
+export const emitEstadoMesa = (mesa: Mesa): void => {
   const io = getIo();
-  // Emite a todos los conectados
   io.emit('mesa:estado', mesa);
-  console.log(`Emitido mesa:estado → todos (Mesa ${mesa.numero}: ${mesa.estado})`);
+  console.log(`[Socket] mesa:estado → todos (Mesa ${mesa.numero}: ${mesa.estado})`);
 };

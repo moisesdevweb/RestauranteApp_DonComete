@@ -116,6 +116,9 @@ export const crearUser = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // ── Un usuario no puede crearse a sí mismo con un rol superior ──
+    // (redundante con puedeGestionar pero explícito para claridad)
+
     const user = await User.create({
       nombre:       nombre.trim(),
       username:     username.trim().toLowerCase(),
@@ -161,6 +164,15 @@ export const editarUser = async (req: Request, res: Response): Promise<void> => 
 
     const rolSolicitante = req.user!.rol as Rol;
 
+    // ── Nadie puede cambiar su propio rol ──
+    if (user.id === req.user!.id && req.body.rol && req.body.rol !== user.rol) {
+      res.status(403).json({
+        ok: false,
+        message: 'No puedes cambiar tu propio rol',
+      });
+      return;
+    }
+
     // ── Validación de rango ──
     if (!puedeGestionar(rolSolicitante, user.rol)) {
       res.status(403).json({
@@ -170,11 +182,20 @@ export const editarUser = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // Si intentan cambiar el rol, verificar que el nuevo rol también sea gestionable
+    // ── Validar que el nuevo rol también sea gestionable por el solicitante ──
     if (req.body.rol && !puedeGestionar(rolSolicitante, req.body.rol as Rol)) {
       res.status(403).json({
         ok: false,
         message: 'No puedes asignar ese rol',
+      });
+      return;
+    }
+
+    // ── Un admin no puede ser degradado — protege la integridad del sistema ──
+    if (user.rol === Rol.ADMIN && req.body.rol && req.body.rol !== Rol.ADMIN) {
+      res.status(403).json({
+        ok: false,
+        message: 'No se puede cambiar el rol de un administrador',
       });
       return;
     }
@@ -316,8 +337,9 @@ export const reactivarUser = async (req: Request, res: Response): Promise<void> 
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PATCH /api/users/:id/password
-// El hash lo maneja el hook BeforeUpdate del modelo.
-// Solo registra que cambió — nunca guarda la contraseña en el log.
+// Permite al admin/encargado resetear la contraseña de un usuario de menor rango.
+// El hash lo maneja el hook BeforeUpdate del modelo automáticamente.
+// IMPORTANTE: nunca se guarda la contraseña en el log de auditoría.
 // ─────────────────────────────────────────────────────────────────────────────
 export const cambiarPassword = async (req: Request, res: Response): Promise<void> => {
   try {

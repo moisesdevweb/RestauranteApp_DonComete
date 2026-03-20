@@ -4,7 +4,7 @@ import { AuditAccion } from '../models/AuditLog';
 import { audit } from '../services/audit.service';
 import { EstadoOrden, EstadoMesa, EstadoDetalle } from '../types/enums';
 import { parseId } from '../utils/parseId';
-import { emitNuevaOrden, emitItemListo, emitEstadoMesa } from '../sockets/orden.socket';
+import { emitNuevaOrden, emitItemListo, emitEstadoMesa, emitStockBajo } from '../sockets/orden.socket';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/ordenes
@@ -179,7 +179,32 @@ export const enviarACocina = async (req: Request, res: Response): Promise<void> 
         .filter(d => d.estado === EstadoDetalle.PENDIENTE)
         .map(async d => {
           const esDirecto = d.tipo === 'carta' && d.producto && !d.producto.requiereCocina;
-          if (esDirecto) await d.update({ estado: EstadoDetalle.LISTO });
+          if (!esDirecto) return;
+
+          await d.update({ estado: EstadoDetalle.LISTO });
+
+          // ── Descuento de stock para productos directos ──
+          // Se hace aquí porque estos productos nunca pasan por cocina,
+          // así que no llegarían al marcarItemListo del cocinero.
+          if (d.productoId) {
+            const prod = await Producto.findByPk(d.productoId);
+            if (prod && prod.stock !== null) {
+              const stockNuevo   = Math.max(0, (prod.stock as number) - d.cantidad);
+              const agotadoNuevo = stockNuevo === 0;
+              await prod.update({ stock: stockNuevo, agotado: agotadoNuevo });
+              console.log(`[Stock-Directo] ${prod.nombre}: ${prod.stock} → ${stockNuevo}`);
+
+              if (stockNuevo <= (prod.stockMinimo ?? 3)) {
+                emitStockBajo({
+                  id:          prod.id,
+                  nombre:      prod.nombre,
+                  stock:       stockNuevo,
+                  stockMinimo: prod.stockMinimo,
+                  agotado:     agotadoNuevo,
+                });
+              }
+            }
+          }
         })
     );
 
@@ -266,7 +291,8 @@ export const getOrdenescocina = async (_req: Request, res: Response): Promise<vo
 // ─────────────────────────────────────────────────────────────────────────────
 // PATCH /api/ordenes/items/:itemId/listo
 // Cocina marca un item como listo.
-// Emite 'orden:item_listo' al mesero para actualizar su carrito en tiempo real.
+// Si el producto tiene stock activo, descuenta las unidades vendidas.
+// Si el stock llega al mínimo o a 0, emite alerta en tiempo real.
 // Roles: cocina, admin
 // ─────────────────────────────────────────────────────────────────────────────
 export const marcarItemListo = async (req: Request, res: Response): Promise<void> => {
@@ -285,7 +311,35 @@ export const marcarItemListo = async (req: Request, res: Response): Promise<void
 
     await detalle.update({ estado: EstadoDetalle.LISTO });
 
-    // Notifica al mesero en tiempo real que este item ya está listo
+    // ── Descuento de stock para productos de cocina ──────────────────────
+    // Solo aplica a productos que SÍ van a cocina (requiereCocina=true).
+    // Los productos directos (gaseosas, agua, etc.) ya descontaron su stock
+    // en enviarACocina cuando se marcaron LISTO automáticamente.
+    if (detalle.tipo === 'carta' && detalle.productoId) {
+      const producto = await Producto.findByPk(detalle.productoId);
+
+      // Verificar que requiere cocina (evitar doble descuento de directos)
+      if (producto && producto.stock !== null && producto.requiereCocina) {
+        const stockActual  = producto.stock as number;
+        const stockNuevo   = Math.max(0, stockActual - detalle.cantidad);
+        const agotadoNuevo = stockNuevo === 0;
+
+        await producto.update({ stock: stockNuevo, agotado: agotadoNuevo });
+        console.log(`[Stock-Cocina] ${producto.nombre}: ${stockActual} → ${stockNuevo}`);
+
+        if (stockNuevo <= (producto.stockMinimo ?? 3)) {
+          emitStockBajo({
+            id:          producto.id,
+            nombre:      producto.nombre,
+            stock:       stockNuevo,
+            stockMinimo: producto.stockMinimo,
+            agotado:     agotadoNuevo,
+          });
+        }
+      }
+    }
+
+    // Notifica al mesero que este item está listo
     emitItemListo(detalle);
 
     res.json({ ok: true, data: detalle, message: 'Item marcado como listo' });

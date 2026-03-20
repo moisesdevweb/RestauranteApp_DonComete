@@ -7,22 +7,20 @@ import { subirImagen, subirImagenDesdeUrl, eliminarImagen } from '../services/cl
 
 const snapshot = (p: Producto) => {
   const data = p.get({ plain: true }) as Record<string, unknown>;
-  // No loggear el publicId de cloudinary en el audit (dato interno)
   delete data.imagenPublicId;
   return data;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/productos
-// Roles: todos los autenticados
-// Query: ?categoriaId=1  ?todos=true (incluye no disponibles, solo admin/encargado)
+// Query: ?categoriaId=1  ?todos=true (incluye no disponibles)
+//        ?stockBajo=true  → solo productos con stock ≤ stockMinimo
 // ─────────────────────────────────────────────────────────────────────────────
 export const getProductos = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { categoriaId, todos } = req.query;
+    const { categoriaId, todos, stockBajo } = req.query;
     const where: Record<string, unknown> = {};
 
-    // Por defecto solo productos disponibles; con ?todos=true el admin ve todos
     if (todos !== 'true') where.disponible = true;
     if (categoriaId) where.categoriaId = categoriaId;
 
@@ -31,6 +29,15 @@ export const getProductos = async (req: Request, res: Response): Promise<void> =
       include: [{ model: Categoria, as: 'categoria' }],
       order: [['nombre', 'ASC']],
     });
+
+    // Filtro de stock bajo en memoria para evitar SQL complejo con columna calculada
+    if (stockBajo === 'true') {
+      const bajos = productos.filter(p =>
+        p.stock !== null && p.stock <= p.stockMinimo
+      );
+      res.json({ ok: true, data: bajos });
+      return;
+    }
 
     res.json({ ok: true, data: productos });
   } catch (err) {
@@ -61,12 +68,13 @@ export const getProducto = async (req: Request, res: Response): Promise<void> =>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/productos
-// Roles: admin, encargado
-// requiereCocina: si no se manda explícitamente, se hereda de la categoría
+// stock y stockMinimo son opcionales.
+// Si no se especifica requiereCocina, se hereda de la categoría.
 // ─────────────────────────────────────────────────────────────────────────────
 export const crearProducto = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { nombre, descripcion, precio, categoriaId, imagenUrl, requiereCocina } = req.body;
+    const { nombre, descripcion, precio, categoriaId, imagenUrl,
+            requiereCocina, stock, stockMinimo } = req.body;
 
     if (!nombre || !precio || !categoriaId) {
       res.status(400).json({ ok: false, message: 'Nombre, precio y categoría son requeridos' });
@@ -77,19 +85,27 @@ export const crearProducto = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Verificar que la categoría exista y obtener su requiereCocina como fallback
     const categoria = await Categoria.findByPk(parseInt(categoriaId));
     if (!categoria) {
       res.status(404).json({ ok: false, message: 'Categoría no encontrada' });
       return;
     }
 
-    // Si el admin no especifica requiereCocina, se hereda de la categoría
+    // Validar stock si se provee
+    if (stock !== undefined && stock !== null && stock !== '' && Number(stock) < 0) {
+      res.status(400).json({ ok: false, message: 'El stock no puede ser negativo' });
+      return;
+    }
+
     const cocinaNecesaria = requiereCocina !== undefined
       ? requiereCocina === 'true' || requiereCocina === true
       : categoria.requiereCocina;
 
-    // ── Imagen: archivo subido o URL externa ──
+    // stock: null = sin control, número = con control
+    const stockFinal = (stock !== undefined && stock !== null && stock !== '')
+      ? parseInt(stock)
+      : null;
+
     let urlFinal: string | null = null;
     let publicId: string | null = null;
 
@@ -111,6 +127,10 @@ export const crearProducto = async (req: Request, res: Response): Promise<void> 
       imagenUrl:      urlFinal,
       imagenPublicId: publicId,
       requiereCocina: cocinaNecesaria,
+      stock:          stockFinal,
+      stockMinimo:    stockMinimo !== undefined ? parseInt(stockMinimo) : 3,
+      // Si se crea con stock 0, marcarlo como agotado automáticamente
+      agotado:        stockFinal !== null && stockFinal === 0,
     });
 
     await audit({
@@ -131,7 +151,7 @@ export const crearProducto = async (req: Request, res: Response): Promise<void> 
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PUT /api/productos/:id
-// Roles: admin, encargado
+// Para quitar el control de stock: enviar stock: null explícitamente
 // ─────────────────────────────────────────────────────────────────────────────
 export const editarProducto = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -141,7 +161,8 @@ export const editarProducto = async (req: Request, res: Response): Promise<void>
     const producto = await Producto.findByPk(id);
     if (!producto) { res.status(404).json({ ok: false, message: 'Producto no encontrado' }); return; }
 
-    const { nombre, descripcion, precio, categoriaId, disponible, agotado, imagenUrl, requiereCocina } = req.body;
+    const { nombre, descripcion, precio, categoriaId, disponible,
+            agotado, imagenUrl, requiereCocina, stock, stockMinimo } = req.body;
 
     if (precio !== undefined && parseFloat(precio) <= 0) {
       res.status(400).json({ ok: false, message: 'El precio debe ser mayor a 0' });
@@ -150,7 +171,6 @@ export const editarProducto = async (req: Request, res: Response): Promise<void>
 
     const estadoAnterior = snapshot(producto);
 
-    // ── Imagen: actualizar solo si cambió ──
     let urlFinal = producto.imagenUrl;
     let publicId = producto.imagenPublicId;
 
@@ -166,16 +186,32 @@ export const editarProducto = async (req: Request, res: Response): Promise<void>
       publicId = resultado.publicId;
     }
 
+    // Resolver el nuevo stock:
+    // - Si se manda 'null' o '' explícito → quitar control de stock
+    // - Si se manda número → actualizar
+    // - Si no se manda → mantener el actual
+    let stockNuevo = producto.stock;
+    if (stock !== undefined) {
+      stockNuevo = (stock === null || stock === '' || stock === 'null')
+        ? null
+        : parseInt(stock);
+    }
+
+    // Auto-marcar agotado si stock llega a 0
+    const agotadoFinal = agotado !== undefined
+      ? Boolean(agotado)
+      : (stockNuevo !== null && stockNuevo === 0) || producto.agotado;
+
     await producto.update({
-      nombre:         nombre         !== undefined ? nombre.trim()          : producto.nombre,
-      descripcion:    descripcion    !== undefined ? descripcion?.trim() || null : producto.descripcion,
-      precio:         precio         !== undefined ? parseFloat(precio)     : producto.precio,
-      categoriaId:    categoriaId    !== undefined ? parseInt(categoriaId)  : producto.categoriaId,
-      disponible:     disponible     !== undefined ? Boolean(disponible)    : producto.disponible,
-      agotado:        agotado        !== undefined ? Boolean(agotado)       : producto.agotado,
-      requiereCocina: requiereCocina !== undefined
-        ? (requiereCocina === 'true' || requiereCocina === true)
-        : producto.requiereCocina,
+      nombre:         nombre         !== undefined ? nombre.trim()                                      : producto.nombre,
+      descripcion:    descripcion    !== undefined ? (descripcion?.trim() || null)                      : producto.descripcion,
+      precio:         precio         !== undefined ? parseFloat(precio)                                 : producto.precio,
+      categoriaId:    categoriaId    !== undefined ? parseInt(categoriaId)                              : producto.categoriaId,
+      disponible:     disponible     !== undefined ? Boolean(disponible)                                : producto.disponible,
+      agotado:        agotadoFinal,
+      requiereCocina: requiereCocina !== undefined ? (requiereCocina === 'true' || requiereCocina === true) : producto.requiereCocina,
+      stock:          stockNuevo,
+      stockMinimo:    stockMinimo    !== undefined ? parseInt(stockMinimo)                              : producto.stockMinimo,
       imagenUrl:      urlFinal,
       imagenPublicId: publicId,
     });
@@ -197,8 +233,7 @@ export const editarProducto = async (req: Request, res: Response): Promise<void>
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DELETE /api/productos/:id — soft delete + elimina imagen de Cloudinary
-// Roles: admin, encargado
+// DELETE /api/productos/:id — soft delete
 // ─────────────────────────────────────────────────────────────────────────────
 export const eliminarProducto = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -231,7 +266,6 @@ export const eliminarProducto = async (req: Request, res: Response): Promise<voi
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PATCH /api/productos/:id/agotado — toggle agotado sin eliminar
-// Roles: admin, encargado
 // ─────────────────────────────────────────────────────────────────────────────
 export const toggleAgotado = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -262,5 +296,55 @@ export const toggleAgotado = async (req: Request, res: Response): Promise<void> 
   } catch (err) {
     console.error('[Producto] toggleAgotado:', err);
     res.status(500).json({ ok: false, message: 'Error al actualizar estado' });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /api/productos/:id/stock — ajuste manual de stock desde admin
+// Body: { cantidad: number, motivo?: string }
+// cantidad puede ser positivo (reponer) o negativo (ajuste por pérdida)
+// ─────────────────────────────────────────────────────────────────────────────
+export const ajustarStock = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) { res.status(400).json({ ok: false, message: 'ID inválido' }); return; }
+
+    const producto = await Producto.findByPk(id);
+    if (!producto) { res.status(404).json({ ok: false, message: 'Producto no encontrado' }); return; }
+
+    if (producto.stock === null) {
+      res.status(400).json({ ok: false, message: 'Este producto no tiene control de stock activado' });
+      return;
+    }
+
+    const { cantidad, motivo } = req.body;
+    if (cantidad === undefined || isNaN(Number(cantidad))) {
+      res.status(400).json({ ok: false, message: 'Cantidad requerida' });
+      return;
+    }
+
+    const stockAnterior = producto.stock;
+    const stockNuevo    = Math.max(0, stockAnterior + Number(cantidad));
+    const estadoAnterior = snapshot(producto);
+
+    await producto.update({
+      stock:   stockNuevo,
+      agotado: stockNuevo === 0,
+    });
+
+    await audit({
+      accion:    AuditAccion.PRODUCTO_EDITADO,
+      entidad:   'productos',
+      entidadId: producto.id,
+      userId:    req.user!.id,
+      antes:     estadoAnterior,
+      despues:   snapshot(producto),
+      meta:      { campo: 'stock', stockAnterior, stockNuevo, cantidad: Number(cantidad), motivo: motivo ?? 'Ajuste manual' },
+    });
+
+    res.json({ ok: true, data: producto, message: `Stock actualizado: ${stockAnterior} → ${stockNuevo}` });
+  } catch (err) {
+    console.error('[Producto] ajustarStock:', err);
+    res.status(500).json({ ok: false, message: 'Error al ajustar stock' });
   }
 };

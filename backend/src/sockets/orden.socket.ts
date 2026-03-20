@@ -42,6 +42,28 @@ export const emitItemListo = (detalle: DetalleOrden): void => {
  * Actualiza el mapa de mesas del mesero en tiempo real sin necesidad de recargar.
  * Se llama cuando: se crea una orden (libre→ocupada) o se cobra (ocupada→libre).
  */
+// ─────────────────────────────────────────────────────────────────────────────
+// Interfaz del payload de alerta de stock bajo
+// ─────────────────────────────────────────────────────────────────────────────
+interface AlertaStock {
+  id:          number;
+  nombre:      string;
+  stock:       number;
+  stockMinimo: number;
+  agotado:     boolean;
+}
+
+/**
+ * Emite una alerta de stock bajo a admin y meseros.
+ * Se dispara cuando el stock de un producto llega al mínimo configurado o a 0.
+ * El frontend muestra un toast de advertencia/error según si está agotado o no.
+ */
+export const emitStockBajo = (alerta: AlertaStock): void => {
+  const io = getIo();
+  io.to('mesero').to('admin').to('encargado').emit('producto:stock_bajo', alerta);
+  console.log(`[Socket] producto:stock_bajo → ${alerta.nombre} (stock: ${alerta.stock})`);
+};
+
 export const emitEstadoMesa = (mesa: Mesa): void => {
   const io = getIo();
   io.emit('mesa:estado', mesa);

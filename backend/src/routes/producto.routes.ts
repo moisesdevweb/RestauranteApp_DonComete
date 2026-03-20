@@ -1,11 +1,7 @@
 import { Router } from 'express';
 import {
-  getProductos,
-  getProducto,
-  crearProducto,
-  editarProducto,
-  eliminarProducto,
-  toggleAgotado,
+  getProductos, getProducto, crearProducto,
+  editarProducto, eliminarProducto, toggleAgotado, ajustarStock,
 } from '../controllers/producto.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import { requireRol } from '../middlewares/role.middleware';
@@ -14,38 +10,20 @@ import { Rol } from '../types/enums';
 
 const router = Router();
 
-// ─── Lectura — todos los autenticados ─────────────────────────────────────────
+const gestores = [authMiddleware, requireRol(Rol.ADMIN, Rol.ENCARGADO)];
+
+// Lectura — todos los autenticados
 router.get('/',    authMiddleware, getProductos);
 router.get('/:id', authMiddleware, getProducto);
 
-// ─── Gestión — admin y encargado ──────────────────────────────────────────────
-router.post(
-  '/',
-  authMiddleware,
-  requireRol(Rol.ADMIN, Rol.ENCARGADO),
-  uploadSingle,
-  crearProducto,
-);
-router.put(
-  '/:id',
-  authMiddleware,
-  requireRol(Rol.ADMIN, Rol.ENCARGADO),
-  uploadSingle,
-  editarProducto,
-);
-router.delete(
-  '/:id',
-  authMiddleware,
-  requireRol(Rol.ADMIN, Rol.ENCARGADO),
-  eliminarProducto,
-);
+// Gestión — admin y encargado
+router.post(  '/',           ...gestores, uploadSingle, crearProducto);
+router.put(   '/:id',        ...gestores, uploadSingle, editarProducto);
+router.delete('/:id',        ...gestores, eliminarProducto);
+router.patch( '/:id/agotado',...gestores, toggleAgotado);
 
-// Toggle agotado — operación frecuente del encargado durante el servicio
-router.patch(
-  '/:id/agotado',
-  authMiddleware,
-  requireRol(Rol.ADMIN, Rol.ENCARGADO),
-  toggleAgotado,
-);
+// Control de stock — admin y encargado
+// PATCH con cantidad positiva = reponer, negativa = ajuste por pérdida/error
+router.patch('/:id/stock', ...gestores, ajustarStock);
 
 export default router;

@@ -32,6 +32,21 @@ export function useMesaPedido(mesaId: number) {
 
   // Socket: alertas de stock bajo y estado de items
   useSocket({
+    // Admin canceló un item desde el panel — actualizar carrito y carta del mesero
+    'orden:item_cancelado': (data: unknown) => {
+      const payload = data as { itemId: number; ordenId: number; productoId: number | null };
+
+      // Quitar el item de los ya enviados si está en esta mesa
+      setItemsYaEnviados(prev => prev.filter(i => i.id !== payload.itemId));
+
+      // Si el producto quedó agotado (socket stock_bajo lo manejará)
+      // Solo notificamos al mesero que se canceló
+      sileo.action({
+        title: '❌ Item cancelado',
+        description: 'Un admin canceló un item de esta orden',
+      });
+    },
+
     // Alerta cuando un producto llega al stock mínimo o se agota
     'producto:stock_bajo': (data: unknown) => {
       const alerta = data as { id: number; nombre: string; stock: number; stockMinimo: number; agotado: boolean };

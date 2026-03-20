@@ -4,7 +4,7 @@ import { AuditAccion } from '../models/AuditLog';
 import { audit } from '../services/audit.service';
 import { EstadoOrden, EstadoMesa, EstadoDetalle } from '../types/enums';
 import { parseId } from '../utils/parseId';
-import { emitNuevaOrden, emitItemListo, emitEstadoMesa, emitStockBajo } from '../sockets/orden.socket';
+import { emitNuevaOrden, emitItemListo, emitEstadoMesa, emitStockBajo, emitItemCancelado } from '../sockets/orden.socket';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/ordenes
@@ -183,9 +183,8 @@ export const enviarACocina = async (req: Request, res: Response): Promise<void> 
 
           await d.update({ estado: EstadoDetalle.LISTO });
 
-          // ── Descuento de stock para productos directos ──
-          // Se hace aquí porque estos productos nunca pasan por cocina,
-          // así que no llegarían al marcarItemListo del cocinero.
+          // ── Descuento de stock para productos DIRECTOS ──
+          // Se hace aquí porque nunca pasan por cocina ni por marcarItemListo.
           if (d.productoId) {
             const prod = await Producto.findByPk(d.productoId);
             if (prod && prod.stock !== null) {
@@ -193,15 +192,8 @@ export const enviarACocina = async (req: Request, res: Response): Promise<void> 
               const agotadoNuevo = stockNuevo === 0;
               await prod.update({ stock: stockNuevo, agotado: agotadoNuevo });
               console.log(`[Stock-Directo] ${prod.nombre}: ${prod.stock} → ${stockNuevo}`);
-
               if (stockNuevo <= (prod.stockMinimo ?? 3)) {
-                emitStockBajo({
-                  id:          prod.id,
-                  nombre:      prod.nombre,
-                  stock:       stockNuevo,
-                  stockMinimo: prod.stockMinimo,
-                  agotado:     agotadoNuevo,
-                });
+                emitStockBajo({ id: prod.id, nombre: prod.nombre, stock: stockNuevo, stockMinimo: prod.stockMinimo, agotado: agotadoNuevo });
               }
             }
           }
@@ -311,14 +303,15 @@ export const marcarItemListo = async (req: Request, res: Response): Promise<void
 
     await detalle.update({ estado: EstadoDetalle.LISTO });
 
-    // ── Descuento de stock para productos de cocina ──────────────────────
-    // Solo aplica a productos que SÍ van a cocina (requiereCocina=true).
-    // Los productos directos (gaseosas, agua, etc.) ya descontaron su stock
-    // en enviarACocina cuando se marcaron LISTO automáticamente.
+    // ── Descuento de stock automático ──────────────────────────────────────
+    // Solo aplica a productos de carta con stock activo (stock !== null).
+    // IMPORTANTE: recargar el producto directamente desde BD después del update
+    // del detalle — Sequelize puede perder la relación cargada en la instancia.
     if (detalle.tipo === 'carta' && detalle.productoId) {
       const producto = await Producto.findByPk(detalle.productoId);
 
-      // Verificar que requiere cocina (evitar doble descuento de directos)
+      // Solo descontar stock de productos que SÍ van a cocina (requiereCocina=true)
+      // Los productos directos ya descontaron su stock en enviarACocina
       if (producto && producto.stock !== null && producto.requiereCocina) {
         const stockActual  = producto.stock as number;
         const stockNuevo   = Math.max(0, stockActual - detalle.cantidad);
@@ -327,6 +320,7 @@ export const marcarItemListo = async (req: Request, res: Response): Promise<void
         await producto.update({ stock: stockNuevo, agotado: agotadoNuevo });
         console.log(`[Stock-Cocina] ${producto.nombre}: ${stockActual} → ${stockNuevo}`);
 
+        // Emitir alerta si llegó al mínimo o se agotó
         if (stockNuevo <= (producto.stockMinimo ?? 3)) {
           emitStockBajo({
             id:          producto.id,
@@ -387,5 +381,136 @@ export const getOrdenMesa = async (req: Request, res: Response): Promise<void> =
   } catch (err) {
     console.error('[Orden] getOrdenMesa:', err);
     res.status(500).json({ ok: false, message: 'Error al obtener orden' });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/ordenes
+// Lista órdenes con filtro de fecha, estado y mesero. Para el panel admin.
+// Query: ?fecha=YYYY-MM-DD  ?estado=pagada  ?meseroId=N
+// Roles: admin, encargado
+// ─────────────────────────────────────────────────────────────────────────────
+export const getOrdenes = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { fecha, estado, meseroId } = req.query;
+
+    const where: Record<string, unknown> = {};
+
+    if (estado) {
+      where.estado = estado;
+    }
+    if (meseroId) {
+      where.userId = parseInt(meseroId as string);
+    }
+
+    // Si se pasa fecha, filtrar por cerradoEn (pagadas) o createdAt (abiertas)
+    if (fecha) {
+      const OFFSET_MS = 5 * 60 * 60 * 1000;
+      const desde = new Date(new Date((fecha as string) + 'T00:00:00.000Z').getTime() + OFFSET_MS);
+      const hasta  = new Date(new Date((fecha as string) + 'T23:59:59.999Z').getTime() + OFFSET_MS);
+      where.createdAt = { [require('sequelize').Op.between]: [desde, hasta] };
+    }
+
+    const ordenes = await Orden.findAll({
+      where,
+      include: [
+        { model: Mesa, as: 'mesa' },
+        { model: User, as: 'mesero', attributes: ['id', 'nombre', 'username'] },
+        {
+          model: Comensal, as: 'comensales',
+          include: [{
+            model: DetalleOrden, as: 'detalles',
+            include: [
+              { model: Producto,   as: 'producto'   },
+              { model: MenuDiario, as: 'menuDiario' },
+            ],
+          }],
+        },
+        {
+          model: (require('../models')).Pago, as: 'pago',
+          include: [{ model: (require('../models')).DetallePago, as: 'detalles' }],
+          required: false,
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: 200,
+    });
+
+    res.json({ ok: true, data: ordenes });
+  } catch (err) {
+    console.error('[Orden] getOrdenes:', err);
+    res.status(500).json({ ok: false, message: 'Error al obtener órdenes' });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /api/ordenes/items/:itemId
+// Admin/encargado cancela un item de una orden activa.
+// Si el producto tiene stock activo, se repone automáticamente.
+// Solo se puede cancelar si la orden no está pagada.
+// Roles: admin, encargado
+// ─────────────────────────────────────────────────────────────────────────────
+export const cancelarItem = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = parseId(req.params.itemId);
+    if (!id) { res.status(400).json({ ok: false, message: 'ID inválido' }); return; }
+
+    const detalle = await DetalleOrden.findByPk(id, {
+      include: [{ model: Producto, as: 'producto' }],
+    });
+    if (!detalle) { res.status(404).json({ ok: false, message: 'Item no encontrado' }); return; }
+
+    // Verificar que la orden no esté pagada
+    const orden = await Orden.findByPk(detalle.ordenId);
+    if (!orden) { res.status(404).json({ ok: false, message: 'Orden no encontrada' }); return; }
+    if (orden.estado === EstadoOrden.PAGADA) {
+      res.status(409).json({ ok: false, message: 'No se puede cancelar un item de una orden ya cobrada' });
+      return;
+    }
+
+    const estadoAnterior = detalle.get({ plain: true });
+
+    // Reponer stock si el producto lo tiene activo
+    if (detalle.tipo === 'carta' && detalle.productoId) {
+      const producto = await Producto.findByPk(detalle.productoId);
+      if (producto && producto.stock !== null) {
+        const stockNuevo = producto.stock + detalle.cantidad;
+        await producto.update({
+          stock:   stockNuevo,
+          agotado: false, // si tenía stock 0, ya no está agotado
+        });
+        console.log(`[Stock] Repuesto por cancelación: ${producto.nombre} → ${stockNuevo}`);
+      }
+    }
+
+    // Eliminar el item de la orden
+    await detalle.destroy();
+
+    // Notificar al mesero en tiempo real — actualiza el carrito y la carta
+    emitItemCancelado({
+      itemId:     id,
+      ordenId:    detalle.ordenId,
+      productoId: detalle.productoId,
+      agotado:    false, // el stock ya fue repuesto arriba si aplica
+    });
+
+    await audit({
+      accion:    AuditAccion.ORDEN_CANCELADA,
+      entidad:   'detalle_orden',
+      entidadId: id,
+      userId:    req.user!.id,
+      antes:     estadoAnterior,
+      despues:   null,
+      meta: {
+        canceladoPor: req.user!.nombre ?? req.user!.username,
+        ordenId:      detalle.ordenId,
+        motivo:       req.body.motivo ?? 'Cancelado desde panel admin',
+      },
+    });
+
+    res.json({ ok: true, message: 'Item cancelado correctamente' });
+  } catch (err) {
+    console.error('[Orden] cancelarItem:', err);
+    res.status(500).json({ ok: false, message: 'Error al cancelar item' });
   }
 };

@@ -30,8 +30,23 @@ export function useMesaPedido(mesaId: number) {
   const [nombreCliente, setNombreCliente] = useState('');
   const [itemsYaEnviados, setItemsYaEnviados] = useState<DetalleConNombre[]>([]);
 
-  // Socket: actualizar estado de item cuando cocina lo marca como listo
+  // Socket: alertas de stock bajo y estado de items
   useSocket({
+    // Alerta cuando un producto llega al stock mínimo o se agota
+    'producto:stock_bajo': (data: unknown) => {
+      const alerta = data as { nombre: string; stock: number; agotado: boolean };
+      if (alerta.agotado) {
+        sileo.error({
+          title: `⚠️ ${alerta.nombre} agotado`,
+          description: 'El producto ya no está disponible',
+        });
+      } else {
+        sileo.action({
+          title: `⚠️ Stock bajo: ${alerta.nombre}`,
+          description: `Solo quedan ${alerta.stock} unidades`,
+        });
+      }
+    },
     'orden:item_listo': (data: unknown) => {
       // el API sólo envía el detalle actualizado, puede incluir campos adicionales
       const detalle = data as DetalleConNombre;
@@ -63,7 +78,7 @@ export function useMesaPedido(mesaId: number) {
   // ── Carga inicial ──────────────────────────────────────
   useEffect(() => {
     const cargar = async () => {
-      limpiar(); // limpiar carrito antes del await para evitar race
+      limpiar(); // limpiar carrito antes del await para evitar race condition con ordenId
       const [todasMesas, prods, cats, menu] = await Promise.all([
         getMesas(), getProductos(), getCategorias(), getMenuHoy(),
       ]);

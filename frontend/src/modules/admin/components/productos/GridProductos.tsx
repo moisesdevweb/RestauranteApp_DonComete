@@ -1,6 +1,5 @@
-/* eslint-disable @next/next/no-img-element */
 'use client';
-import { Edit2, Trash2, ToggleLeft, ToggleRight, ChefHat, Zap } from 'lucide-react';
+import { Edit2, Trash2, ToggleLeft, ToggleRight, ChefHat, Zap, Package } from 'lucide-react';
 import { Producto } from '@/modules/admin/types/admin.types';
 
 interface GridProductosProps {
@@ -46,6 +45,12 @@ export function GridProductos({ productos, loading, onEditar, onEliminar, onTogg
               {p.disponible && !p.agotado && (
                 <span className="text-xs bg-emerald-500 text-white px-2 py-0.5 rounded-full font-medium">Activo</span>
               )}
+              {/* Badge de stock bajo */}
+              {p.stock !== null && p.stock !== undefined && p.stock <= p.stockMinimo && !p.agotado && (
+                <span className="text-xs bg-yellow-500 text-black px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                  <Package size={10} /> {p.stock} uds
+                </span>
+              )}
             </div>
 
             <div className="absolute bottom-2 right-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-lg">
@@ -59,6 +64,13 @@ export function GridProductos({ productos, loading, onEditar, onEliminar, onTogg
             <div className="flex items-center justify-between mt-0.5">
               {p.categoria && (
                 <div className="text-white/30 text-xs truncate">{p.categoria.nombre}</div>
+              )}
+              {p.stock !== null && p.stock !== undefined && (
+                <span className={`text-xs font-medium flex items-center gap-0.5 flex-shrink-0 ${
+                  p.stock === 0 ? 'text-red-400' : p.stock <= p.stockMinimo ? 'text-yellow-400' : 'text-white/30'
+                }`}>
+                  <Package size={10} /> {p.stock}
+                </span>
               )}
               {p.requiereCocina ? (
                 <span title="Va a cocina" className="text-orange-400/60 flex-shrink-0">

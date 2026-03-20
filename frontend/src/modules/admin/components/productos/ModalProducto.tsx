@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 'use client';
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
@@ -22,8 +21,11 @@ export function ModalProducto({ producto, categorias, guardando, onGuardar, onCe
   const [archivo,     setArchivo]     = useState<File | null>(null);
   const [preview,     setPreview]     = useState<string | null>(() => producto?.imagenUrl ?? null);
   const [modoImagen,    setModoImagen]    = useState<'url' | 'archivo'>('url');
-  // Se inicializa con el valor del producto; si es nuevo, true por defecto (seguro)
   const [requiereCocina, setRequiereCocina] = useState(() => producto?.requiereCocina ?? true);
+  // Stock: vacío = sin control, número = con control activo
+  const [tieneStock,    setTieneStock]    = useState(() => producto?.stock !== null && producto?.stock !== undefined);
+  const [stock,         setStock]         = useState(() => producto?.stock?.toString() ?? '');
+  const [stockMinimo,   setStockMinimo]   = useState(() => producto?.stockMinimo?.toString() ?? '3');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleArchivo = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -41,6 +43,13 @@ export function ModalProducto({ producto, categorias, guardando, onGuardar, onCe
     form.append('precio',      precio);
     form.append('categoriaId', categoriaId);
     form.append('requiereCocina', String(requiereCocina));
+    // Stock: solo enviar si tiene control activo
+    if (tieneStock && stock !== '') {
+      form.append('stock',       stock);
+      form.append('stockMinimo', stockMinimo);
+    } else if (!tieneStock) {
+      form.append('stock', 'null'); // quitar control de stock
+    }
     if (archivo)         form.append('imagen',    archivo);
     else if (imagenUrl)  form.append('imagenUrl', imagenUrl);
     onGuardar(form);
@@ -133,6 +142,36 @@ export function ModalProducto({ producto, categorias, guardando, onGuardar, onCe
               {requiereCocina
                 ? 'Se notifica a cocina al enviar el pedido (ej: lomo saltado, café)'
                 : 'El mesero lo sirve directo sin notificar a cocina (ej: gaseosa, agua)'}
+            </p>
+          </div>
+
+          {/* ── Control de stock (opcional) ──────────────────────────────── */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-white/60 text-sm">Control de Stock</label>
+              <button type="button" onClick={() => { setTieneStock(!tieneStock); if (tieneStock) setStock(''); }}
+                className={`relative w-11 h-6 rounded-full transition-all cursor-pointer ${tieneStock ? 'bg-orange-500' : 'bg-[#2a3040]'}`}>
+                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all shadow ${tieneStock ? 'left-5' : 'left-0.5'}`} />
+              </button>
+            </div>
+            {tieneStock && (
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div>
+                  <label className="text-white/40 text-xs mb-1 block">Stock actual</label>
+                  <input type="number" min="0" value={stock} onChange={e => setStock(e.target.value)}
+                    placeholder="Ej: 24"
+                    className="w-full bg-[#2a3040] border border-white/10 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-orange-500/50 placeholder-white/20" />
+                </div>
+                <div>
+                  <label className="text-white/40 text-xs mb-1 block">Alerta cuando queden</label>
+                  <input type="number" min="1" value={stockMinimo} onChange={e => setStockMinimo(e.target.value)}
+                    placeholder="Ej: 3"
+                    className="w-full bg-[#2a3040] border border-white/10 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-orange-500/50 placeholder-white/20" />
+                </div>
+              </div>
+            )}
+            <p className="text-white/20 text-xs mt-1.5">
+              {tieneStock ? 'Se descuenta automáticamente al vender' : 'Sin control — ideal para platos cocinados'}
             </p>
           </div>
 

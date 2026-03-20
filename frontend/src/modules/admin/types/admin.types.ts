@@ -45,6 +45,10 @@ export interface Producto {
   agotado: boolean;
   /** Si false, el mesero sirve este producto directo sin notificar a cocina */
   requiereCocina: boolean;
+  /** null = sin control de stock | número = unidades disponibles */
+  stock:       number | null;
+  /** Umbral de alerta — notifica cuando stock ≤ stockMinimo */
+  stockMinimo: number;
   categoriaId: number;
   categoria?: Pick<Categoria, 'id' | 'nombre' | 'icono'>;
   createdAt: string;

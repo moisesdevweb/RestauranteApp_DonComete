@@ -10,6 +10,8 @@ export { DetalleOrden }   from './DetalleOrden';
 export { Pago }           from './Pago';
 export { DetallePago }    from './DetallePago';
 export { AuditLog }       from './AuditLog';
+export { CodigoDescuento }  from './CodigoDescuento';  
+export { ConfigQR }         from './ConfigQR';         
 export const setupAssociations = () => {
   console.log('Asociaciones de modelos configuradas');
 };
